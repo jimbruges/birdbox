@@ -1,0 +1,25 @@
+# app.yaml: The main configuration file for your Arduino App.
+# This file describes the application's metadata and properties.
+
+# The user-visible name of the application.
+name: BirdBox
+
+# The icon for the application, can be an emoji or a short string.
+icon: 🐦
+
+# A description of what the application does.
+description: >
+  Identifies bird species from live microphone audio with BirdNET V2.4 running
+  on-device, reports detections to Arduino Cloud, pushes a model bird out of the
+  box on an FS90R servo rail and plays a simulated song for the species on a
+  Modulino Buzzer. Everything is tuned from an Arduino Cloud dashboard.
+
+# A list of network ports that the application exposes.
+# Example: [80, 443]
+ports: []
+
+# A list of bricks used by this application.
+bricks:
+  - arduino:arduino_cloud
+  - arduino:web_ui
+  - birdnet

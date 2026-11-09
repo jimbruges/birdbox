@@ -1,0 +1,737 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BirdBox Debug</title>
+<style>
+  :root {
+    --bg: #f5f6f4;
+    --card: #ffffff;
+    --ink: #1d2320;
+    --muted: #6b746f;
+    --line: #dde2dd;
+    --accent: #2f7d5b;
+    --warn: #b7791f;
+    --bad: #c0392b;
+    --bar: #9fcdb5;
+    --bar-hit: #2f7d5b;
+    --threshold: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12160f;
+      --card: #1b211a;
+      --ink: #e6ece6;
+      --muted: #8c978f;
+      --line: #2c352b;
+      --accent: #5fbf8f;
+      --warn: #e0a84a;
+      --bad: #ef6b5e;
+      --bar: #36513f;
+      --bar-hit: #5fbf8f;
+      --threshold: #ef6b5e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12160f;
+    --card: #1b211a;
+    --ink: #e6ece6;
+    --muted: #8c978f;
+    --line: #2c352b;
+    --accent: #5fbf8f;
+    --warn: #e0a84a;
+    --bad: #ef6b5e;
+    --bar: #36513f;
+    --bar-hit: #5fbf8f;
+    --threshold: #ef6b5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 20px; margin: 0; flex: 1 1 auto; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .pill.ok { color: var(--accent); border-color: var(--accent); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    align-items: start;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    min-width: 0;
+  }
+  .card.wide { grid-column: 1 / -1; }
+  .muted { color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row label { color: var(--muted); min-width: 110px; }
+  button {
+    font: inherit;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type="number"], input[type="text"] {
+    font: inherit;
+    width: 110px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  input[type="range"] { flex: 1 1 160px; min-width: 120px; }
+  .meter {
+    position: relative;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar-hit); }
+  .meter .peak { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+  .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  canvas { width: 100%; height: 90px; display: block; border-radius: 6px; background: var(--bg); }
+  .cands { display: grid; gap: 6px; margin-top: 6px; }
+  .cand { display: grid; grid-template-columns: minmax(0, 1fr) 56px; gap: 4px 8px; align-items: center; }
+  .cand .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cand .name small { color: var(--muted); }
+  .cand .bar {
+    grid-column: 1 / -1;
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .cand .bar span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); }
+  .cand.hit .bar span { background: var(--bar-hit); }
+  .cand .bar i { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--threshold); }
+  .cand .score { text-align: right; font-variant-numeric: tabular-nums; }
+  .big { font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .track {
+    position: relative;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    margin: 10px 0 4px;
+  }
+  .track .pos { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar-hit); border-radius: 6px; }
+  .track .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+  td.k { color: var(--muted); width: 45%; word-break: break-word; }
+  td.v { word-break: break-word; }
+  .off {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--muted);
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    font-size: 13px;
+  }
+  .toast:empty { display: none; }
+  .toast.err { color: var(--bad); border-color: var(--bad); }
+  .groups { display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .groups h3 { font-size: 13px; margin: 10px 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .setting .unit { color: var(--muted); }
+  .setting input[type="number"] { width: 90px; }
+  .pill.local { font-size: 11px; padding: 0 8px; }
+  @media (max-width: 420px) {
+    body { padding: 12px; }
+    .row label { min-width: 0; width: 100%; }
+    input[type="number"] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BirdBox debug</h1>
+  <span id="conn" class="pill">connecting</span>
+  <span id="listen" class="pill">mic ?</span>
+</header>
+
+<div id="off" class="card off" hidden>
+  <p><strong>Debug UI is off.</strong></p>
+  <p>Set the <code>debug_ui</code> variable to <strong>true</strong> in Arduino Cloud to use this page.</p>
+</div>
+
+<div id="panels" class="grid">
+
+  <section class="card">
+    <h2>Microphone</h2>
+    <div class="row muted" id="device">-</div>
+    <div class="row">
+      <label for="vol">Mic volume</label>
+      <input id="vol" type="range" min="0" max="100" step="1">
+      <span id="volVal" class="pill">-</span>
+    </div>
+    <div class="muted">Digital boost is under Settings. It is applied before analysis, and the meter shows the boosted level.</div>
+    <div class="meter" aria-label="Input level">
+      <div class="fill" id="rmsFill"></div>
+      <div class="peak" id="peakMark"></div>
+    </div>
+    <div class="scale"><span>-60 dB</span><span>-30</span><span>0 dBFS</span></div>
+    <div class="row">
+      <span>RMS <strong id="rms">-</strong> dBFS</span>
+      <span>Peak <strong id="peak">-</strong> dBFS</span>
+      <span id="clip" class="pill bad" hidden>clipping</span>
+    </div>
+    <canvas id="spark" width="600" height="180" aria-label="Level history"></canvas>
+    <div class="muted" id="levelAge">-</div>
+    <h2 style="margin-top:14px">Recorded sample</h2>
+    <div class="row">
+      <label for="sampleSec">Length</label>
+      <select id="sampleSec">
+        <option value="3" selected>last 3 s</option>
+        <option value="5">last 5 s</option>
+        <option value="10">last 10 s</option>
+      </select>
+      <label><input id="sampleBoost" type="checkbox"> with boost</label>
+    </div>
+    <div class="row">
+      <button id="btnSample" class="primary" type="button">Play sample</button>
+      <a id="dlSample" class="pill" href="#" download="birdnet-sample.wav" hidden>download WAV</a>
+    </div>
+    <audio id="player" controls hidden style="width:100%"></audio>
+    <div class="muted" id="sampleInfo">Plays the newest audio from the mic, before the model sees it.</div>
+  </section>
+
+  <section class="card">
+    <h2>Model</h2>
+    <div class="row">
+      <span>Windows <strong id="windows">-</strong></span>
+      <span>Inference <strong id="infer">-</strong> ms</span>
+    </div>
+    <div class="row">
+      <span>Threshold <strong id="thresh">-</strong></span>
+      <span>Range <strong id="range">-</strong></span>
+    </div>
+    <div class="row"><span>Watching <strong id="watchName">-</strong></span><span id="watchScore" class="pill">-</span></div>
+    <div class="row"><span id="muted" class="pill">-</span><span class="muted" id="mutedCount"></span></div>
+    <div class="muted">Best candidates in the last 3 s window, whether or not they cleared the threshold.</div>
+    <div class="cands" id="cands"></div>
+    <div class="muted" id="candAge">-</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Settings</h2>
+    <div class="muted">Changes apply immediately and are saved on the board, so they survive a restart.
+      Settings that also exist as a variable on your Arduino Cloud Thing are sent there too;
+      on start-up the Cloud's value wins for those.</div>
+    <div class="groups" id="settings"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Servo</h2>
+    <div class="row">
+      <span>Rail <span class="big" id="railState">-</span></span>
+      <span class="pill" id="servoOn">-</span>
+    </div>
+    <div class="muted">Each move drives to a hard stop: travel time ÷ speed, plus the overrun into the stop.</div>
+
+    <div class="row">
+      <button id="btnIn" type="button">In</button>
+      <button id="btnOut" type="button">Out</button>
+      <button id="btnTest" class="primary" type="button">Test (out, hold, in)</button>
+      <button id="btnStop" type="button">Stop</button>
+    </div>
+
+    <div class="muted">The song starts once the bird is fully out. With "Stay out until the song ends" on, Hold out is the minimum. Test plays the song too when birdsong is on.</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Birdsong</h2>
+    <div class="row">
+      <span class="pill" id="songOn">-</span>
+      <span class="pill" id="buzzer">-</span>
+    </div>
+    <div class="row">
+      <label for="songPick">Hand-made</label>
+      <select id="songPick"></select>
+      <button id="btnSong" type="button">Play</button>
+    </div>
+    <div class="row">
+      <label for="songName">Any species</label>
+      <input id="songName" type="text" placeholder="Scientific name, e.g. Buteo buteo" style="width:240px">
+      <button id="btnSongName" type="button">Play</button>
+    </div>
+    <div class="muted" id="songInfo">Test buttons play even while birdsong_enabled is off.</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Cloud variables</h2>
+    <table><tbody id="vars"></tbody></table>
+  </section>
+
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const POLL_MS = 500;
+  const $ = (id) => document.getElementById(id);
+  let debugOn = null;
+
+  const fmt = (v, digits = 1) => (v === null || v === undefined || Number.isNaN(v)) ? "-" : Number(v).toFixed(digits);
+  const pct = (v, lo, hi) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+
+  function toast(text, isError) {
+    const el = $("toast");
+    el.textContent = text;
+    el.classList.toggle("err", !!isError);
+    if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ""; }, 4000);
+  }
+
+  async function api(path, body) {
+    const opts = body === undefined ? {} : {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    };
+    const res = await fetch(path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (_) { /* non-JSON error page */ }
+    if (!res.ok) {
+      const detail = data && data.detail ? data.detail : `HTTP ${res.status}`;
+      throw new Error(detail);
+    }
+    return data;
+  }
+
+  function send(command) {
+    return api("/api/servo", { command }).catch((err) => toast(err.message, true));
+  }
+
+  function setDebugState(on, reachable) {
+    const conn = $("conn");
+    if (!reachable) {
+      conn.textContent = "unreachable";
+      conn.className = "pill bad";
+    } else if (on) {
+      conn.textContent = "live";
+      conn.className = "pill ok";
+    } else {
+      conn.textContent = "off";
+      conn.className = "pill warn";
+    }
+    const showOff = on === false;
+    $("off").hidden = !showOff;
+    $("panels").hidden = showOff;
+  }
+
+  function renderLevel(mic) {
+    const level = mic.level || {};
+    const rms = level.rms_dbfs;
+    const peak = level.peak_dbfs;
+    $("device").textContent = mic.device ? `Device: ${mic.device}` : "No microphone open";
+    $("rms").textContent = fmt(rms);
+    $("peak").textContent = fmt(peak);
+    $("rmsFill").style.width = rms == null ? "0%" : pct(rms, -60, 0) + "%";
+    $("peakMark").style.left = peak == null ? "0%" : pct(peak, -60, 0) + "%";
+    $("clip").hidden = !level.clipping;
+    if (level.at) {
+      const age = Date.now() / 1000 - level.at;
+      $("levelAge").textContent = age > 3 ? `No audio for ${age.toFixed(0)} s` : `Last chunk ${age.toFixed(1)} s ago`;
+    } else {
+      $("levelAge").textContent = "No audio captured yet";
+    }
+    if (document.activeElement !== $("vol") && mic.volume != null) {
+      $("vol").value = mic.volume;
+      $("volVal").textContent = mic.volume;
+    }
+    drawSpark(mic.history || []);
+  }
+
+  function drawSpark(history) {
+    const canvas = $("spark");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const styles = getComputedStyle(document.documentElement);
+    const ink = styles.getPropertyValue("--bar-hit").trim();
+    const line = styles.getPropertyValue("--threshold").trim();
+    // -60 dBFS at the bottom, 0 dBFS at the top.
+    const y = (db) => h - pct(db, -60, 0) / 100 * h;
+    ctx.strokeStyle = line;
+    ctx.globalAlpha = 0.35;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(0, y(-6)); ctx.lineTo(w, y(-6)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    if (history.length < 2) return;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    history.forEach((db, i) => {
+      const x = i / (history.length - 1) * w;
+      if (i === 0) ctx.moveTo(x, y(db)); else ctx.lineTo(x, y(db));
+    });
+    ctx.stroke();
+  }
+
+  function renderModel(bird) {
+    const threshold = bird.min_confidence ?? 0.5;
+    $("windows").textContent = bird.windows_analysed ?? "-";
+    $("infer").textContent = fmt(bird.last_inference_ms, 0);
+    $("thresh").textContent = fmt(threshold, 2);
+    $("range").textContent = bird.species_in_range == null ? "all species" : `${bird.species_in_range} species`;
+    $("muted").textContent = bird.last_window_muted ? "last window ignored (buzzer playing)" : "last window counted";
+    $("muted").className = "pill " + (bird.last_window_muted ? "warn" : "ok");
+    $("mutedCount").textContent = `${bird.windows_muted ?? 0} windows ignored since start`;
+    const watch = bird.watch || {};
+    $("watchName").textContent = watch.name || "not in labels";
+    $("watchScore").textContent = watch.score == null
+      ? "-"
+      : `${(watch.score * 100).toFixed(1)}% · rank ${watch.rank}`;
+    const list = $("cands");
+    list.replaceChildren();
+    (bird.top || []).forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "cand" + (c.score >= threshold ? " hit" : "");
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = c.name;
+      const small = document.createElement("small");
+      small.textContent = "  " + c.scientific;
+      name.appendChild(small);
+      const score = document.createElement("div");
+      score.className = "score";
+      score.textContent = (c.score * 100).toFixed(1) + "%";
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      const fill = document.createElement("span");
+      fill.style.width = (c.score * 100).toFixed(1) + "%";
+      const mark = document.createElement("i");
+      mark.style.left = (threshold * 100).toFixed(1) + "%";
+      bar.append(fill, mark);
+      row.append(name, score, bar);
+      list.appendChild(row);
+    });
+    if (!bird.top || !bird.top.length) {
+      list.textContent = "No windows analysed yet.";
+    }
+    $("candAge").textContent = bird.top_at
+      ? `Updated ${(Date.now() / 1000 - bird.top_at).toFixed(1)} s ago`
+      : "";
+  }
+
+  function renderBirdsong(song) {
+    $("songOn").textContent = song.enabled ? "birdsong on" : "birdsong off";
+    $("songOn").className = "pill " + (song.enabled ? "ok" : "warn");
+    $("buzzer").textContent = song.buzzer_found == null ? "buzzer ?" : song.buzzer_found ? "buzzer found" : "no buzzer";
+    $("buzzer").className = "pill " + (song.buzzer_found ? "ok" : song.buzzer_found === false ? "bad" : "");
+  }
+
+  function renderServo(servo) {
+    $("railState").textContent = servo.state ?? "-";
+    $("servoOn").textContent = servo.enabled ? "servo enabled" : "servo disabled";
+  }
+
+  // --- Settings: controls built from the server's list ---------------------
+  // A control the user has touched is left alone by the 500 ms refresh until
+  // its change has been applied (or 15 s pass), so it never snaps back mid-edit.
+  const EDIT_GRACE_MS = 15000;
+  const editing = {};
+  const controls = {};
+  let settingsBuilt = "";
+
+  const isEditing = (name) => editing[name] && Date.now() - editing[name] < EDIT_GRACE_MS;
+  const decimals = (step) => (step && step < 1 ? String(step).split(".")[1].length : 0);
+
+  function showValue(name, value) {
+    const c = controls[name];
+    if (!c) return;
+    if (c.type === "bool") {
+      c.box.checked = !!value;
+    } else {
+      if (c.range) c.range.value = value;
+      c.num.value = value;
+    }
+  }
+
+  function applySetting(name, value) {
+    editing[name] = Date.now();
+    api("/api/setting", { name, value })
+      .then((r) => {
+        delete editing[name];
+        showValue(name, r.value);
+        const c = controls[name];
+        const shown = c.type === "bool" ? (r.value ? "on" : "off") : `${r.value}${c.unit ? " " + c.unit : ""}`;
+        toast(`${c.label}: ${shown}`);
+      })
+      .catch((err) => { delete editing[name]; toast(err.message, true); });
+  }
+
+  function buildSettings(list) {
+    const root = $("settings");
+    root.replaceChildren();
+    const groups = {};
+    list.forEach((s) => {
+      if (!groups[s.group]) {
+        const box = document.createElement("div");
+        const h = document.createElement("h3");
+        h.textContent = s.group;
+        box.appendChild(h);
+        root.appendChild(box);
+        groups[s.group] = box;
+      }
+      const row = document.createElement("div");
+      row.className = "row setting";
+      const id = "set_" + s.name;
+      const touch = () => { editing[s.name] = Date.now(); };
+      const c = { type: s.type, label: s.label, unit: s.unit };
+
+      if (s.type === "bool") {
+        const label = document.createElement("label");
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.id = id;
+        // debug_ui can only be switched from the Cloud, or this page would lock itself out.
+        box.disabled = s.name === "debug_ui";
+        box.addEventListener("pointerdown", touch);
+        box.addEventListener("change", () => applySetting(s.name, box.checked));
+        label.append(box, " " + s.label);
+        row.appendChild(label);
+        c.box = box;
+      } else {
+        const label = document.createElement("label");
+        label.htmlFor = id;
+        label.textContent = s.label;
+        row.appendChild(label);
+        const num = document.createElement("input");
+        num.type = "number";
+        num.id = id;
+        if (s.min != null) num.min = s.min;
+        if (s.max != null) num.max = s.max;
+        num.step = s.step ?? "any";
+        num.addEventListener("focus", touch);
+        num.addEventListener("input", touch);
+        num.addEventListener("change", () => {
+          const v = parseFloat(num.value);
+          if (Number.isNaN(v)) return toast("Enter a number", true);
+          applySetting(s.name, v);
+        });
+        if (s.step != null) {
+          const range = document.createElement("input");
+          range.type = "range";
+          range.min = s.min;
+          range.max = s.max;
+          range.step = s.step;
+          range.setAttribute("aria-label", s.label);
+          range.addEventListener("pointerdown", touch);
+          range.addEventListener("input", () => {
+            touch();
+            num.value = parseFloat(range.value).toFixed(decimals(s.step));
+          });
+          range.addEventListener("change", () => applySetting(s.name, parseFloat(range.value)));
+          row.appendChild(range);
+          c.range = range;
+        }
+        row.appendChild(num);
+        if (s.unit) {
+          const unit = document.createElement("span");
+          unit.className = "unit";
+          unit.textContent = s.unit;
+          row.appendChild(unit);
+        }
+        c.num = num;
+      }
+      if (!s.cloud) {
+        const pill = document.createElement("span");
+        pill.className = "pill local";
+        pill.textContent = "board only";
+        pill.title = "Saved on the board; not an Arduino Cloud variable";
+        row.appendChild(pill);
+      }
+      controls[s.name] = c;
+      groups[s.group].appendChild(row);
+    });
+  }
+
+  function renderSettings(list) {
+    const key = list.map((s) => s.name).join(",");
+    if (key !== settingsBuilt) {
+      buildSettings(list);
+      settingsBuilt = key;
+    }
+    list.forEach((s) => {
+      const c = controls[s.name];
+      const focused = c && (document.activeElement === c.num || document.activeElement === c.box);
+      if (!isEditing(s.name) && !focused) showValue(s.name, s.value);
+    });
+  }
+
+  function renderVariables(vars) {
+    const body = $("vars");
+    body.replaceChildren();
+    Object.keys(vars).sort().forEach((name) => {
+      const tr = document.createElement("tr");
+      const k = document.createElement("td");
+      k.className = "k";
+      k.textContent = name;
+      const v = document.createElement("td");
+      v.className = "v";
+      const value = vars[name];
+      v.textContent = value === null || value === "" ? "-" : String(value);
+      tr.append(k, v);
+      body.appendChild(tr);
+    });
+  }
+
+  async function poll() {
+    try {
+      const data = await api("/api/status");
+      setDebugState(true, true);
+      $("listen").textContent = data.listening ? "listening" : "not listening";
+      $("listen").className = "pill " + (data.listening ? "ok" : "bad");
+      renderLevel(data.mic);
+      renderModel(data.birdnet);
+      renderServo(data.servo);
+      renderSettings(data.settings || []);
+      renderBirdsong(data.birdsong);
+      renderVariables(data.variables);
+      if (!songsLoaded) loadSongs();
+      debugOn = true;
+    } catch (err) {
+      if (err.message.startsWith("Debug UI is off")) {
+        setDebugState(false, true);
+        debugOn = false;
+      } else {
+        setDebugState(debugOn === true ? true : null, false);
+        debugOn = null;
+      }
+    } finally {
+      setTimeout(poll, POLL_MS);
+    }
+  }
+
+  let songsLoaded = false;
+
+  async function loadSongs() {
+    songsLoaded = true;
+    try {
+      const data = await api("/api/songs");
+      const pick = $("songPick");
+      pick.replaceChildren();
+      data.curated.forEach((s) => {
+        const option = document.createElement("option");
+        option.value = s.scientific;
+        option.textContent = `${s.name} (${s.scientific})`;
+        pick.appendChild(option);
+      });
+    } catch (_) {
+      songsLoaded = false;  // try again on the next poll
+    }
+  }
+
+  function playSong(scientific) {
+    if (!scientific) return toast("Pick or type a species first", true);
+    api("/api/birdsong", { scientific })
+      .then((r) => { $("songInfo").textContent = `Playing ${r.scientific}: ${r.match}, ${r.segments} segments`; })
+      .catch((err) => toast(err.message, true));
+  }
+
+  function bind() {
+    $("btnOut").addEventListener("click", () => send("out"));
+    $("btnIn").addEventListener("click", () => send("in"));
+    $("btnStop").addEventListener("click", () => send("stop"));
+    $("btnTest").addEventListener("click", () => send("test"));
+    $("btnSong").addEventListener("click", () => playSong($("songPick").value));
+    $("btnSongName").addEventListener("click", () => playSong($("songName").value.trim()));
+
+    $("vol").addEventListener("input", (e) => { $("volVal").textContent = e.target.value; });
+    $("vol").addEventListener("change", (e) => {
+      api("/api/mic", { volume: parseInt(e.target.value, 10) })
+        .then((r) => toast(`Gain set to ${r.volume}`))
+        .catch((err) => toast(err.message, true));
+    });
+
+
+    $("btnSample").addEventListener("click", async () => {
+      const seconds = $("sampleSec").value;
+      const boosted = $("sampleBoost").checked ? 1 : 0;
+      try {
+        const res = await fetch(`/api/sample?seconds=${seconds}&boosted=${boosted}`);
+        if (!res.ok) {
+          let detail = `HTTP ${res.status}`;
+          try { detail = (await res.json()).detail || detail; } catch (_) { /* not JSON */ }
+          throw new Error(detail);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const player = $("player");
+        if (player.src) URL.revokeObjectURL(player.src);
+        player.src = url;
+        player.hidden = false;
+        player.play().catch(() => { /* needs a user gesture on some browsers; controls still work */ });
+        const dl = $("dlSample");
+        dl.href = url;
+        dl.hidden = false;
+        $("sampleInfo").textContent =
+          `${seconds} s${boosted ? ", boosted" : ""} · peak ${res.headers.get("X-Peak-dBFS")} dBFS · ` +
+          `RMS ${res.headers.get("X-RMS-dBFS")} dBFS`;
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+
+  }
+
+  bind();
+  poll();
+})();
+</script>
+</body>
+</html>

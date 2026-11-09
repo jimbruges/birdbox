@@ -1,0 +1,99 @@
+id: birdnet
+name: BirdNET
+description: >
+  Identifies bird species from live microphone audio using the BirdNET GLOBAL 6K V2.4
+  model (6522 classes) running on-device with LiteRT. Analyses 3-second windows of
+  48 kHz mono audio and reports every species above a confidence threshold.
+category: audio
+
+# The brick reads the microphone directly from the main app container,
+# so ALSA devices have to be mapped in (same setup as arduino:cloud_asr).
+#
+# Deliberately NOT declaring `required_devices: [microphone]`: that gate refuses
+# to launch the app at all when no mic is plugged in. The brick waits for one
+# instead, so a mic can be connected or swapped while the app keeps running.
+mount_devices_into_container: true
+
+variables:
+  - name: BIRDNET_MIC_DEVICE
+    default_value: auto
+    description: >
+      Microphone to listen on. "auto" picks the first free device, preferring USB.
+      Otherwise an index (0, 1), an ALSA name (hw:0,0, plughw:CARD=Device,DEV=0)
+      or one of usb:1 / usb:2 / jack:1.
+
+  - name: BIRDNET_MIN_CONFIDENCE
+    default_value: "0.5"
+    description: Minimum confidence (0.0-1.0) before a species counts as detected.
+
+  - name: BIRDNET_SENSITIVITY
+    default_value: "1.0"
+    description: >
+      Steepness of the score curve (0.5-1.5). With a confidence threshold below 0.5,
+      lower values give more detections; above 0.5, higher values do. At exactly 0.5
+      it changes only the reported confidence, not what is detected.
+
+  - name: BIRDNET_GAIN_DB
+    default_value: "0"
+    description: >
+      Digital boost (0-30 dB) applied to the microphone audio before analysis, for
+      quiet mics. Also adjustable live from the debug web UI.
+
+  - name: BIRDNET_WATCH_SPECIES
+    default_value: Eurasian Blackbird
+    description: >
+      Common name (in the BIRDNET_LOCALE language) of one species whose score the
+      debug web UI always shows, even when it is not in the top five.
+
+  - name: BIRDNET_OVERLAP_SECONDS
+    default_value: "0.0"
+    description: >
+      Overlap between consecutive 3-second windows, in seconds (0.0-2.5).
+      1.0 catches calls that straddle a window boundary; costs proportionally more CPU.
+
+  - name: BIRDNET_BIRDS_ONLY
+    default_value: "true"
+    description: >
+      Ignore BirdNET's non-bird classes (Dog, Siren, Fireworks, Engine, Human vocal,
+      Noise and similar). Set to false to report those too.
+
+  - name: BIRDNET_COOLDOWN_SECONDS
+    default_value: "30"
+    description: >
+      Per-species quiet period. The same species will not be reported again until
+      this many seconds have passed.
+
+  - name: BIRDNET_LATITUDE
+    default_value: "0"
+    description: >
+      Latitude for the species range filter. Leave at 0 (together with longitude) to
+      consider all 6522 classes worldwide. Set both to restrict results to species
+      plausible at your location and time of year. Overridden by Arduino Cloud when
+      the app's range_filter variable is on.
+
+  - name: BIRDNET_LONGITUDE
+    default_value: "0"
+    description: Longitude for the species range filter. See latitude.
+
+  - name: BIRDNET_LOCALE
+    default_value: en_uk
+    description: >
+      Language of the common names, e.g. en_uk, en_us, de, fr, es, it, nl, pt, sv, fi.
+
+  - name: BIRDNET_THREADS
+    default_value: "2"
+    description: >
+      CPU threads for inference (1-4). A 3-second window takes ~350 ms on 1 thread and
+      ~225 ms on 4. 2 is a good balance that leaves headroom for the rest of the app.
+
+  - name: BIRDNET_MODEL_DIR
+    default_value: /app/models/birdnet
+    description: Where the BirdNET model and label files are cached on the board.
+    hidden: true
+
+  - name: BIRDNET_MODEL_VARIANT
+    default_value: FP16
+    description: >
+      Model precision - FP16 (24.7 MB) or FP32 (49.3 MB). They run at the same speed
+      on this hardware, so FP16 is the default.
+    hidden: true

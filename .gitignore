@@ -1,0 +1,17 @@
+# App Lab build cache
+.cache/
+
+# BirdNET model and labels, downloaded on first run (CC BY-NC-SA 4.0, not redistributed here)
+models/
+
+# Settings saved on the board by the app
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
