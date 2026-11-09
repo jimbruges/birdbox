@@ -29,8 +29,8 @@ Intermediate · about 3 hours, plus printing time
 |---|---|
 | 1 | Arduino UNO Q (2 GB or 4 GB) |
 | 1 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) |
-| 1 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey) |
-| 1 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt) |
+| 1 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey/dp/B0B9N3QSL3) |
+| 1 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt/dp/B08NTCD6VQ) |
 | 1 | USB-C hub |
 | 1 | FS90R continuous-rotation micro servo (SG90 size) |
 | 1 | Arduino Modulino Buzzer + Qwiic cable |
