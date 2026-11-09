@@ -21,20 +21,32 @@ Arduino Cloud, then slides out a model bird that sings the species' song.
 
 ## Difficulty / time
 
-Intermediate · about 3 hours, plus building the bird box
+Intermediate · about 3 hours, plus printing time
 
 ## Components and supplies
 
 | Qty | Item |
 |---|---|
 | 1 | Arduino UNO Q (2 GB or 4 GB) |
-| 1 | USB microphone, or a TRRS (4-pole) headset mic with the UNO Media Carrier |
-| 1 | FS90R continuous-rotation micro servo |
+| 1 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) |
+| 1 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey) |
+| 1 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt) |
+| 1 | USB-C hub |
+| 1 | FS90R continuous-rotation micro servo (SG90 size) |
 | 1 | Arduino Modulino Buzzer + Qwiic cable |
 | 1 | 5 V / 3 A USB-C power supply |
-| 1 | USB-C hub (if you use a USB microphone) |
-| 1 | Bird box with a small linear rail and a model bird (3D printed or carved) |
+| 1 | Wooden bird box |
+| 1 | Small felt bird (I used a robin) |
 | 3 | Jumper wires (servo to D9, 5V and GND) |
+| — | 3D-printed mic holder, linear servo assembly and servo gear |
+| — | Silicone sealant or hot glue, small wood screws |
+
+## Tools
+
+- 3D printer
+- ~60 mm hole saw and drill
+- Hot glue gun (if not using silicone)
+- Screwdriver
 
 ## Apps and platforms
 
@@ -82,20 +94,60 @@ microphone ─► BirdNET brick (Linux) ─► detection ─┬─► Arduino Cl
    push the bird out. Once it reaches the end of the rail, the Modulino Buzzer plays
    a song for that species. The bird retracts when the song ends.
 
-### Building the bird box
+### 3D-printed parts
 
-[PHOTO: inside the box — rail, servo, end stops]
+All the print files (STL, plus STEP for remixing) are in the repository's
+`hardware/` folder:
 
-The model bird rides on a short rail behind the entrance hole, pushed by an FS90R
-continuous-rotation servo. A continuous servo has no position control, so I added
-a **hard stop at each end of the rail** (about 140° of servo rotation apart). The
-sketch simply drives towards a stop for a fixed time plus a small overrun, then
-releases the servo. No encoder or homing switch is needed, and the rail can't drift
-out of calibration.
+- **Mic holder** — a small outdoor housing for the USB mic and its adapter
+- **Linear servo assembly** — print-in-place rack and slide for an SG90-size servo
+- **Servo gear** — the pinion that drives the rack
 
-Leave room behind the hole for the bird to retract fully, and make sure the
-microphone has a clear path to the outside. A small grille or mesh-covered opening
-works well, and keeps the mic out of the rain.
+The servo assembly is based on
+[Linear servo using SG90 9g servo](https://www.printables.com/model/1566678-linear-servo-using-sg90-9g-servo) by lingeswaran on Printables, and the
+servo gear comes from that design. Thanks for sharing it under CC BY!
+
+**Printing the servo assembly:** it's print-in-place, so put the **mounting face on
+the build plate** and use **organic supports**.
+
+### Building the outdoor microphone
+
+[PHOTO: mic holder with mic, adapter and cable, before and after sealing]
+
+The board lives indoors, but the microphone needs to be outside to hear birds
+properly.
+
+1. Plug the Mini USB Microphone into the USB-C to USB-A adapter, and the adapter
+   into the USB-C extension cable.
+2. Fit the mic and adapter into the printed holder.
+3. Fill the holder with silicone or hot glue to waterproof it. **Don't block the
+   microphone's sound port** — a piece of tape over it while you fill does the job.
+4. Mount it somewhere sheltered outside, and run the cable in to the USB-C hub on
+   the UNO Q.
+
+Record a test sample from the debug page afterwards to check the mic still hears
+clearly.
+
+### Building the servo bird box
+
+[PHOTO: inside the box — servo assembly, gear and bird]
+
+[PHOTO: the bird box from the front, with the bird hole]
+
+1. **Fit the gear** onto the FS90R's shaft. Screw it on with the servo's screw, or
+   glue it.
+2. **Mount the servo** in the printed assembly so the gear meshes with the rack.
+3. **Cut a hole** in the front of a real bird box with a ~60 mm hole saw, big
+   enough for your bird to pass through. I used a felt robin; pick a bird that
+   suits you.
+4. **Attach the bird** to the end of the assembly's arm.
+5. **Screw the assembly inside the box** so the bird hides just behind the hole
+   when retracted and pokes out when the servo drives.
+
+An FS90R is a continuous-rotation servo, which spins rather than moving to an
+angle. So the ends of the assembly's travel act as **hard stops**: the sketch drives
+towards one end for a fixed time plus a small overrun, then releases the servo. No
+encoder or homing switch is needed, and the bird can't drift out of calibration.
 
 ### Wiring
 
@@ -107,7 +159,7 @@ works well, and keeps the mic out of the rain.
 | Servo V+ (red) | 5V |
 | Servo GND (brown) | GND |
 | Modulino Buzzer | Qwiic connector |
-| Microphone | USB-C hub, or the Media Carrier's TRRS jack |
+| Microphone | Mic → USB-C adapter → USB-C extension → USB-C hub |
 
 > **Mic tip:** the Media Carrier's 3.5 mm jack is a combined headset socket. It
 > needs a 4-pole TRRS (CTIA) plug, like phone headsets. A plain lavalier plug with
@@ -215,7 +267,10 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
   Cornell Lab of Ornithology and Chemnitz University of Technology. Model weights
   are CC BY-NC-SA 4.0 (non-commercial). Kahl, S. et al., *BirdNET: A deep learning
   solution for avian diversity monitoring*, Ecological Informatics 61 (2021).
-- This project's code: Mozilla Public License 2.0 (MPL-2.0).
+- **Linear servo assembly and servo gear** based on
+  [Linear servo using SG90 9g servo](https://www.printables.com/model/1566678-linear-servo-using-sg90-9g-servo) by lingeswaran (CC BY).
+- This project's code: Mozilla Public License 2.0 (MPL-2.0). 3D print files:
+  CC BY 4.0.
 
 ---
 

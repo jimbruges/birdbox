@@ -25,16 +25,23 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [`assets/index.html`](assets/index.html) | Debug web UI on port 7000 (mic meter, model candidates, servo calibration, song tester) |
 | [`docs/arduino-cloud.md`](docs/arduino-cloud.md) | Step-by-step Arduino Cloud Thing and dashboard setup |
 | [`docs/project-hub.md`](docs/project-hub.md) | Arduino Project Hub write-up |
+| [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly and servo gear (STL + STEP) |
 
 ## What you need
 
 | Part | Notes |
 |---|---|
 | Arduino UNO Q | 2 GB or 4 GB. Connected to Wi-Fi and to Arduino App Lab. |
-| Microphone | A **USB microphone** is simplest. An analog mic also works on the 3.5 mm **TRRS** jack of the UNO Media Carrier (ASX00083) — it must be a 4-pole headset plug (CTIA). A plain TS/TRS lavalier plug will only record noise. |
-| FS90R continuous-rotation micro servo | Driven directly from D9, no driver board. |
+| [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) | Tiny USB-A mic that fits the printed outdoor holder. Any USB mic works. An analog mic also works on the 3.5 mm **TRRS** jack of the UNO Media Carrier (ASX00083), but it must be a 4-pole headset plug (CTIA); a plain TS/TRS lavalier plug only records noise. |
+| [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey) | Goes in the mic holder with the mic. |
+| [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt) | Runs from the mic holder outside to the board indoors. |
+| USB-C hub | So the UNO Q can take power and the mic at the same time. |
+| FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
-| Bird box with a linear rail | The rail needs a **hard mechanical stop at each end**. The prototype's travel is ~140° of servo rotation. |
+| A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
+| A small bird | A felt robin is ideal. Pick whatever bird suits you. |
+| 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
+| ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
 | 5 V / 3 A USB-C power supply | The servo's stall current comes out of the board's 5 V rail. |
 | Arduino Cloud account | The app uses 23 Thing variables. The Free plan allows 5 per Thing — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
@@ -46,7 +53,58 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
-| Microphone | USB (through a USB-C hub), or the Media Carrier's 3.5 mm TRRS jack |
+| Microphone | Mic → USB-C adapter → USB-C extension cable → USB-C hub on the UNO Q (or the Media Carrier's 3.5 mm TRRS jack) |
+
+## Building the hardware
+
+The print files are in [`hardware/`](hardware/), as STL for printing and STEP
+for editing.
+
+| File | What it is |
+|---|---|
+| `birdbox-mic-holder.stl` / `.step` | A small outdoor housing for the mic and its USB-C adapter |
+| `birdbox-servo-assembly-print-in-place.stl` | The linear servo assembly, printed in one piece |
+| `birdbox-servo-assembly.step` | The servo assembly as an editable model |
+| `servo-gear.stl` / `.step` | The pinion gear that goes on the servo |
+
+### Outdoor microphone
+
+The mic has to be outside to hear birds well. The board stays indoors.
+
+1. Print the mic holder.
+2. Plug the Mini USB Microphone into the USB-C to USB-A adapter, then plug the
+   adapter into the USB-C extension cable.
+3. Put the mic and adapter in the holder, with the cable coming out of the back.
+4. Fill the holder with silicone sealant or hot glue to waterproof it.
+   **Keep the microphone's sound port clear** — cover it with tape while you fill
+   and remove it afterwards. A blocked port means a deaf box.
+5. Mount the holder outside, somewhere sheltered from rain and wind, and run the
+   cable indoors to the USB-C hub on the UNO Q.
+
+Use the debug UI's **Recorded sample** to check the mic still hears clearly once
+it's sealed.
+
+### Servo assembly and bird
+
+The linear servo assembly is based on
+[Linear servo using SG90 9g servo]({P}) by
+**lingeswaran** on Printables (CC BY). The servo gear is from that design too.
+
+1. **Print the assembly** print-in-place: put the **mounting face on the build
+   plate** and use **organic supports**. Then print the **servo gear**.
+2. **Fit the gear** to the FS90R's output shaft with the servo's screw, or glue it.
+3. **Mount the servo** in the assembly so the gear meshes with the rack.
+4. **Cut the bird hole.** Use a ~60 mm hole saw on the front of a real bird box,
+   big enough for your bird to pass through. Keep the original entrance hole if
+   you want real birds to move in.
+5. **Attach the bird** to the end of the assembly's arm.
+6. **Screw the assembly inside the box** so that the bird sits just inside the
+   hole when retracted, and pokes out when the servo drives out.
+7. Wire the servo to the UNO Q (see [Wiring](#wiring)), start the app, and
+   [calibrate the rail](#calibrating-the-rail). The assembly's ends act as the hard
+   stops the app relies on.
+
+If the bird goes in when it should come out, flip `OUT_SIGN` (see [Calibrating the rail](#calibrating-the-rail)).
 
 ## Install
 
@@ -287,6 +345,10 @@ App.run()
 ## Licensing
 
 This project's code is licensed under the [Mozilla Public License 2.0](LICENSE).
+The 3D print files in `hardware/` are licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). They're adapted from
+[Linear servo using SG90 9g servo](https://www.printables.com/model/1566678-linear-servo-using-sg90-9g-servo) by lingeswaran (CC BY): the servo
+assembly is a modified version, and the servo gear is the original part.
 
 The BirdNET model and labels are **not included** in this repository; the Brick
 downloads them from the
