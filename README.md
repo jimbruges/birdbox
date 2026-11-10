@@ -35,7 +35,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) | Tiny USB-A mic that fits the printed outdoor holder. Any USB mic works. An analog mic also works on the 3.5 mm **TRRS** jack of the UNO Media Carrier (ASX00083), but it must be a 4-pole headset plug (CTIA); a plain TS/TRS lavalier plug only records noise. |
 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey/dp/B0B9N3QSL3) | Goes in the mic holder with the mic. |
 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt/dp/B08NTCD6VQ) | Runs from the mic holder outside to the board indoors. |
-| USB-C hub | So the UNO Q can take power and the mic at the same time. |
+| **Powered** USB-C hub | Required for a USB mic: the UNO Q's USB-C port doesn't supply power to USB devices. A PD hub can power the board too. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
@@ -53,7 +53,14 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
-| Microphone | Mic → USB-C adapter → USB-C extension cable → USB-C hub on the UNO Q (or the Media Carrier's 3.5 mm TRRS jack) |
+| Microphone | Mic → USB-C adapter → USB-C extension cable → **powered** USB-C hub → UNO Q (or the Media Carrier's 3.5 mm TRRS jack) |
+
+> **The mic needs a powered hub.** The UNO Q's USB-C port only *takes* power: it
+> never supplies 5 V to what's plugged into it, even when the board runs from VIN.
+> A USB mic plugged straight into the board, or through a plain adapter, gets no
+> power and never shows up. Use a USB-C hub with its own power supply between the
+> extension cable and the board. A PD hub that also powers the UNO Q works, and
+> then you don't need VIN at all.
 
 ## Building the hardware
 
@@ -79,7 +86,7 @@ The mic has to be outside to hear birds well. The board stays indoors.
    **Keep the microphone's sound port clear** — cover it with tape while you fill
    and remove it afterwards. A blocked port means a deaf box.
 5. Mount the holder outside, somewhere sheltered from rain and wind, and run the
-   cable indoors to the USB-C hub on the UNO Q.
+   cable indoors to the powered USB-C hub on the UNO Q.
 
 Use the debug UI's **Recorded sample** to check the mic still hears clearly once
 it's sealed.

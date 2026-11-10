@@ -31,7 +31,7 @@ Intermediate · about 3 hours, plus printing time
 | 1 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) |
 | 1 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey/dp/B0B9N3QSL3) |
 | 1 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt/dp/B08NTCD6VQ) |
-| 1 | USB-C hub |
+| 1 | Powered USB-C hub (a PD hub can power the UNO Q too) |
 | 1 | FS90R continuous-rotation micro servo (SG90 size) |
 | 1 | Arduino Modulino Buzzer + Qwiic cable |
 | 1 | 5 V / 3 A USB-C power supply |
@@ -122,7 +122,7 @@ properly.
 2. Fit the mic and adapter into the printed holder.
 3. Fill the holder with silicone or hot glue to waterproof it. **Don't block the
    microphone's sound port** — a piece of tape over it while you fill does the job.
-4. Mount it somewhere sheltered outside, and run the cable in to the USB-C hub on
+4. Mount it somewhere sheltered outside, and run the cable in to the powered USB-C hub on
    the UNO Q.
 
 Record a test sample from the debug page afterwards to check the mic still hears
@@ -159,12 +159,17 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 | Servo V+ (red) | 5V |
 | Servo GND (brown) | GND |
 | Modulino Buzzer | Qwiic connector |
-| Microphone | Mic → USB-C adapter → USB-C extension → USB-C hub |
+| Microphone | Mic → USB-C adapter → USB-C extension → powered USB-C hub → UNO Q |
 
 > **Mic tip:** the Media Carrier's 3.5 mm jack is a combined headset socket. It
 > needs a 4-pole TRRS (CTIA) plug, like phone headsets. A plain lavalier plug with
 > one or two bands will only record noise. A cheap USB microphone avoids the
 > question entirely.
+
+> **Power tip:** the UNO Q's USB-C port doesn't supply power to USB devices, even
+> when the board is powered from VIN. I first tried plugging the mic straight in
+> and it never appeared. Put a USB-C hub with its own power supply in between. A
+> PD hub can power the board as well.
 
 ### Software
 
