@@ -34,7 +34,7 @@ Intermediate · about 3 hours, plus printing time
 | 1 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) |
 | 1 | FS90R continuous-rotation micro servo (SG90 size) |
 | 1 | Arduino Modulino Buzzer + Qwiic cable |
-| 1 | USB-C PD power supply, 30 W or more (powers the hub and the board) |
+| 1 | USB-C power supply, 5 W is enough (powers the hub and the board) |
 | 1 | Wooden bird box |
 | 1 | Small felt bird (I used a robin) |
 | 3 | Jumper wires (servo to D9, 5V and GND) |
@@ -159,7 +159,7 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 | Servo V+ (red) | 5V |
 | Servo GND (brown) | GND |
 | Modulino Buzzer | Qwiic connector |
-| USB-C hub | Hub → UNO Q's USB-C port; PD supply → hub's power port |
+| USB-C hub | Hub → UNO Q's USB-C port; power supply → hub's power port |
 | Microphone | Mic → USB-C adapter → USB-C extension → hub's USB-C data port |
 
 > **Mic tip:** the Media Carrier's 3.5 mm jack is a combined headset socket. It
@@ -169,7 +169,7 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 
 > **Power tip:** the UNO Q's USB-C port doesn't supply power to USB devices, even
 > when the board is powered from VIN. I first tried plugging the mic straight in
-> and it never appeared. The Arduino USB-C Hub (8-in-1) solves it neatly: a PD
+> and it never appeared. The Arduino USB-C Hub (8-in-1) solves it neatly: a small
 > charger in the hub's power port powers the board through the passthrough, and
 > the mic plugs into the hub's data port.
 
@@ -261,7 +261,7 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 - **Raise `cooldown_seconds`** during the dawn chorus so one chatty robin doesn't
   flood your dashboard.
 - **Power:** a servo stalling against an end stop draws a few hundred mA from the
-  5 V rail. Use a PD supply of 30 W or more for the hub, or the board may reset.
+  5 V rail. If the board resets when the bird moves, try a stronger charger.
 
 ### What's next
 

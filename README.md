@@ -42,7 +42,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
-| USB-C PD power supply | Plugs into the hub's power port and powers everything. Use 30 W or more: the hub keeps some for itself, and the board can take up to 15 W (5 V / 3 A). The servo's stall current comes out of the board's 5 V rail. |
+| USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
 | Arduino Cloud account | The app uses 23 Thing variables. The Free plan allows 5 per Thing — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ## Wiring
@@ -53,7 +53,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
-| USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; PD power supply → hub's **power** (PD) port |
+| USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; power supply → hub's **power** port |
 | Microphone | Mic → USB-C adapter → USB-C extension cable → hub's USB-C **data** port |
 
 > **Why the hub?** The UNO Q's USB-C port only *takes* power: it never supplies
@@ -236,7 +236,7 @@ An FS90R is not linear in speed, so recheck after changing `servo_speed`.
 detaches it, but you can trim `NEUTRAL_US` (default `1500`) a few µs either way.
 
 **Board resets when the servo moves?** That's the servo's stall current on the 5 V
-rail. Use a PD supply of 30 W or more for the hub, or add a bulk capacitor (e.g.
+rail. Try a stronger charger for the hub, or add a bulk capacitor (e.g.
 470 µF) across the servo's 5 V and GND.
 
 The built-in LED lights while the bird is moving or out, so you can test the whole chain
