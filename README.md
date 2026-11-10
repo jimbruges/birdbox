@@ -35,14 +35,14 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) | Tiny USB-A mic that fits the printed outdoor holder. Any USB mic works. An analog mic also works on the 3.5 mm **TRRS** jack of the UNO Media Carrier (ASX00083), but it must be a 4-pole headset plug (CTIA); a plain TS/TRS lavalier plug only records noise. |
 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey/dp/B0B9N3QSL3) | Goes in the mic holder with the mic. |
 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt/dp/B08NTCD6VQ) | Runs from the mic holder outside to the board indoors. |
-| **Powered** USB-C hub | Required for a USB mic: the UNO Q's USB-C port doesn't supply power to USB devices. A PD hub can power the board too. |
+| [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) (TPX00241) | Powers the UNO Q through its USB-C power passthrough, and the mic through its data port. Needed because the UNO Q's USB-C port doesn't supply power to USB devices. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
-| 5 V / 3 A USB-C power supply | The servo's stall current comes out of the board's 5 V rail. |
+| USB-C PD power supply | Plugs into the hub's power port and powers everything. Use 30 W or more: the hub keeps some for itself, and the board can take up to 15 W (5 V / 3 A). The servo's stall current comes out of the board's 5 V rail. |
 | Arduino Cloud account | The app uses 23 Thing variables. The Free plan allows 5 per Thing — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ## Wiring
@@ -53,14 +53,14 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
-| Microphone | Mic → USB-C adapter → USB-C extension cable → **powered** USB-C hub → UNO Q (or the Media Carrier's 3.5 mm TRRS jack) |
+| USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; PD power supply → hub's **power** (PD) port |
+| Microphone | Mic → USB-C adapter → USB-C extension cable → hub's USB-C **data** port |
 
-> **The mic needs a powered hub.** The UNO Q's USB-C port only *takes* power: it
-> never supplies 5 V to what's plugged into it, even when the board runs from VIN.
-> A USB mic plugged straight into the board, or through a plain adapter, gets no
-> power and never shows up. Use a USB-C hub with its own power supply between the
-> extension cable and the board. A PD hub that also powers the UNO Q works, and
-> then you don't need VIN at all.
+> **Why the hub?** The UNO Q's USB-C port only *takes* power: it never supplies
+> 5 V to what's plugged into it, even when the board runs from VIN. A USB mic
+> plugged straight into the board, or through a plain adapter, gets no power and
+> never shows up. The Arduino USB-C Hub fixes that and powers the board through its
+> passthrough at the same time, so nothing needs to go on VIN.
 
 ## Building the hardware
 
@@ -86,7 +86,7 @@ The mic has to be outside to hear birds well. The board stays indoors.
    **Keep the microphone's sound port clear** — cover it with tape while you fill
    and remove it afterwards. A blocked port means a deaf box.
 5. Mount the holder outside, somewhere sheltered from rain and wind, and run the
-   cable indoors to the powered USB-C hub on the UNO Q.
+   cable indoors to the USB-C data port on the hub.
 
 Use the debug UI's **Recorded sample** to check the mic still hears clearly once
 it's sealed.
@@ -220,9 +220,9 @@ Servo card or the dashboard's Messenger widget (`servo_command`):
 |---|---|
 | `out` | Drive to the outer stop. |
 | `in` | Drive to the inner stop (`home` works too). |
-| `test` | The full detection action: out, sing (if `birdsong_enabled`, for the last detected species or a blackbird), hold, in. |
+| `test` | The full detection action: out, sing the European Robin (if `birdsong_enabled`), hold, in. |
 | `stop` | Stop immediately. |
-| `song` | Play the song only. |
+| `song` | Play the song only, for the last detected species (the European Robin if nothing has been heard yet). |
 
 1. Set `servo_speed` to how fast you want the bird to move.
 2. Send `out`, then `in`. If the bird stops short of a stop, raise `travel_ms`. If
@@ -236,7 +236,7 @@ An FS90R is not linear in speed, so recheck after changing `servo_speed`.
 detaches it, but you can trim `NEUTRAL_US` (default `1500`) a few µs either way.
 
 **Board resets when the servo moves?** That's the servo's stall current on the 5 V
-rail. Use a 5 V / 3 A supply and a good cable, or add a bulk capacitor (e.g.
+rail. Use a PD supply of 30 W or more for the hub, or add a bulk capacitor (e.g.
 470 µF) across the servo's 5 V and GND.
 
 The built-in LED lights while the bird is moving or out, so you can test the whole chain

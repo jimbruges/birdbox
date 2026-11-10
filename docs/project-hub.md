@@ -31,10 +31,10 @@ Intermediate · about 3 hours, plus printing time
 | 1 | [Mini USB Microphone](https://thepihut.com/products/mini-usb-microphone) (The Pi Hut) |
 | 1 | [UGREEN USB-C to USB-A adapter](https://www.amazon.co.uk/UGREEN-Adapter-10Gbps-iPhone-MacBook-Grey/dp/B0B9N3QSL3) |
 | 1 | [UGREEN USB-C extension cable](https://www.amazon.co.uk/UGREEN-Extension-Extender-Compatible-Thunderbolt/dp/B08NTCD6VQ) |
-| 1 | Powered USB-C hub (a PD hub can power the UNO Q too) |
+| 1 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) |
 | 1 | FS90R continuous-rotation micro servo (SG90 size) |
 | 1 | Arduino Modulino Buzzer + Qwiic cable |
-| 1 | 5 V / 3 A USB-C power supply |
+| 1 | USB-C PD power supply, 30 W or more (powers the hub and the board) |
 | 1 | Wooden bird box |
 | 1 | Small felt bird (I used a robin) |
 | 3 | Jumper wires (servo to D9, 5V and GND) |
@@ -122,7 +122,7 @@ properly.
 2. Fit the mic and adapter into the printed holder.
 3. Fill the holder with silicone or hot glue to waterproof it. **Don't block the
    microphone's sound port** — a piece of tape over it while you fill does the job.
-4. Mount it somewhere sheltered outside, and run the cable in to the powered USB-C hub on
+4. Mount it somewhere sheltered outside, and run the cable in to the USB-C data port on
    the UNO Q.
 
 Record a test sample from the debug page afterwards to check the mic still hears
@@ -159,7 +159,8 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 | Servo V+ (red) | 5V |
 | Servo GND (brown) | GND |
 | Modulino Buzzer | Qwiic connector |
-| Microphone | Mic → USB-C adapter → USB-C extension → powered USB-C hub → UNO Q |
+| USB-C hub | Hub → UNO Q's USB-C port; PD supply → hub's power port |
+| Microphone | Mic → USB-C adapter → USB-C extension → hub's USB-C data port |
 
 > **Mic tip:** the Media Carrier's 3.5 mm jack is a combined headset socket. It
 > needs a 4-pole TRRS (CTIA) plug, like phone headsets. A plain lavalier plug with
@@ -168,8 +169,9 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 
 > **Power tip:** the UNO Q's USB-C port doesn't supply power to USB devices, even
 > when the board is powered from VIN. I first tried plugging the mic straight in
-> and it never appeared. Put a USB-C hub with its own power supply in between. A
-> PD hub can power the board as well.
+> and it never appeared. The Arduino USB-C Hub (8-in-1) solves it neatly: a PD
+> charger in the hub's power port powers the board through the passthrough, and
+> the mic plugs into the hub's data port.
 
 ### Software
 
@@ -245,7 +247,8 @@ It made diagnosing a dead microphone much faster than reading logs.
 1. Send `out` and `in` from the dashboard or the debug page.
 2. If the bird stops short of an end, increase `travel_ms`. If the servo grinds
    against the stop, decrease it.
-3. Send `test` to see the whole performance, and adjust `hold_ms` to taste.
+3. Send `test` to see the whole performance (it always sings the European
+   Robin), and adjust `hold_ms` to taste.
 
 The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 140° rail.
@@ -258,7 +261,7 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 - **Raise `cooldown_seconds`** during the dawn chorus so one chatty robin doesn't
   flood your dashboard.
 - **Power:** a servo stalling against an end stop draws a few hundred mA from the
-  5 V rail. Use a proper 5 V / 3 A supply, or the board may reset.
+  5 V rail. Use a PD supply of 30 W or more for the hub, or the board may reset.
 
 ### What's next
 

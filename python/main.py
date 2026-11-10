@@ -339,6 +339,10 @@ if _saved:
     logger.info(f"Loaded saved settings from {SETTINGS_FILE.name}")
 
 
+# The test action always sings this species, matching the felt robin on the prototype.
+TEST_SPECIES = "Erithacus rubecula"
+
+
 def run_command(client: object, value: str) -> None:
     """Calibration commands, sent from a Messenger widget on the dashboard."""
     global _clear_command
@@ -361,9 +365,9 @@ def run_command(client: object, value: str) -> None:
         # The whole detection action, so hold_for_song can be tried too.
         Bridge.call("servo_present")
         if birdsong_enabled:
-            play_song(cloud.get("last_scientific_name", "") or "Turdus merula", wait_for_bird=True)
+            play_song(TEST_SPECIES, wait_for_bird=True)
     elif command == "song":
-        play_song(cloud.get("last_scientific_name", "") or "Turdus merula")
+        play_song(cloud.get("last_scientific_name", "") or TEST_SPECIES)
     else:
         logger.warning(f"Unknown command {command!r}. Use: in, out, stop, test, song")
         return
