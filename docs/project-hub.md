@@ -9,9 +9,9 @@ they appear.
 
 ## Cover image
 
-![BirdBox cover](images/cover_robin.png)
+![BirdBox cover](images/cover_robin_4x3.jpg)
 
-`docs/images/cover_robin.png` (1080 × 1920, portrait).
+`docs/images/cover_robin_4x3.jpg` (1600 × 1200, 4:3). A PNG version is alongside it.
 
 ## Title
 
