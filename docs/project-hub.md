@@ -88,7 +88,7 @@ together, and Arduino Cloud gives me a dashboard on my phone.
 ```
 microphone ─► BirdNET brick (Linux) ─► detection ─┬─► Arduino Cloud dashboard
                                                    └─► Router Bridge ─► MCU ─┬─► servo pushes bird out
-                                                                             └─► buzzer sings the species
+                                                                             └─► buzzer plays the species' song
 ```
 
 1. **Listen.** A custom App Lab *brick* records 48 kHz audio from the microphone in
@@ -134,7 +134,7 @@ properly.
 3. Fill the holder with silicone or hot glue to waterproof it. **Don't block the
    microphone's sound port** — a piece of tape over it while you fill does the job.
 4. Mount it somewhere sheltered outside, and run the cable in to the USB-C data port on
-   the UNO Q.
+   the hub.
 
 Record a test sample from the debug page afterwards to check the mic still hears
 clearly.
@@ -181,8 +181,8 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 | Servo V+ (red) | 5V |
 | Servo GND (brown) | GND |
 | Modulino Buzzer | Qwiic connector |
-| USB-C hub | Hub → UNO Q's USB-C port; power supply → hub's power port |
-| Microphone | Mic → USB-C adapter → USB-C extension → hub's USB-C data port |
+| USB-C hub | UNO Q's USB-C port (power supply in the hub's power port) |
+| Microphone | USB-C adapter → USB-C extension → hub's USB-C data port |
 
 > **Mic tip:** the Media Carrier's 3.5 mm jack is a combined headset socket. It
 > needs a 4-pole TRRS (CTIA) plug, like phone headsets. A plain lavalier plug with
@@ -206,13 +206,13 @@ git clone https://github.com/jimbruges/birdbox.git birdbox
 
 It shows up in App Lab under **My Apps**. The app has four parts:
 
-- **`bricks/birdnet/`** — a custom brick wrapping BirdNET. It handles the
+- `bricks/birdnet/` — a custom brick wrapping BirdNET. It handles the
   microphone, windowing, inference and the range filter. It downloads the model
   (~40 MB) on first run.
-- **`python/main.py`** — connects detections to Arduino Cloud, the servo and the
+- `python/main.py` — connects detections to Arduino Cloud, the servo and the
   buzzer, and serves a debug web page.
-- **`python/songs.py`** — the birdsong library.
-- **`sketch/sketch.ino`** — the microcontroller side: non-blocking servo moves and
+- `python/songs.py` — the birdsong library.
+- `sketch/sketch.ino` — the microcontroller side: non-blocking servo moves and
   song playback, controlled over the Router Bridge.
 
 ### Birdsong on the buzzer
@@ -277,8 +277,8 @@ It made diagnosing a dead microphone much faster than reading logs.
 1. Send `out` and `in` from the dashboard or the debug page.
 2. If the bird stops short of an end, increase `travel_ms`. If the servo grinds
    against the stop, decrease it.
-3. Send `test` to see the whole performance (it always sings the European
-   Robin), and adjust `hold_ms` to taste.
+3. Send `test` to see the whole performance (it always plays the European
+   Robin's song), and adjust `hold_ms` to taste.
 
 The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 140° rail.
@@ -288,7 +288,7 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 - **Turn on the range filter** with your coordinates. It cuts 6,522 classes down to
   the ~150 plausible species, and removes the odd "Andean hummingbird" from a noisy
   recording. Latitude comes first: Cambridge, UK is `52.2053, 0.1218`.
-- **Raise `cooldown_seconds`** during the dawn chorus so a single bird calling
+- **Raise** `cooldown_seconds` during the dawn chorus so a single bird calling
   repeatedly doesn't flood your dashboard.
 - **Power:** a servo stalling against an end stop draws a few hundred mA from the
   5 V rail. If the board resets when the bird moves, try a stronger charger.
