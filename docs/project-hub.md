@@ -173,7 +173,7 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 
 ### Wiring
 
-[PHOTO or SCHEMATIC: wiring diagram]
+![BirdBox wiring diagram](images/wiring-diagram.png)
 
 | From | To |
 |---|---|
@@ -258,7 +258,7 @@ the board, so a Cloud variable is only needed for what you want on your phone.
 
 ### Debug web UI
 
-[SCREENSHOT: debug UI]
+![The BirdBox debug page](images/debug-ui.png)
 
 Turning on `debug_ui` from the Cloud opens a page on the board at port 7000 with:
 
@@ -318,4 +318,4 @@ Link the repository: <https://github.com/jimbruges/birdbox>
 
 ## Schematics
 
-Upload the wiring diagram (servo on D9 / 5V / GND, Modulino Buzzer on Qwiic).
+Upload `docs/images/wiring-diagram.png` (servo on D9 / 5V / GND, Modulino Buzzer on Qwiic, mic and board through the USB-C hub).

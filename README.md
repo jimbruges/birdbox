@@ -50,6 +50,8 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 
 ## Wiring
 
+![BirdBox wiring: servo on D9, 5V and GND; Modulino Buzzer on Qwiic; USB-C hub powering the UNO Q and the outdoor USB mic](docs/images/wiring-diagram.png)
+
 | From | To |
 |---|---|
 | FS90R orange / yellow (signal) | **D9** |
@@ -283,6 +285,8 @@ when the song is sent, through the bird's out move, to the end of the song plus
 0.5 s (`BIRDSONG_MUTE_TAIL_S` in `python/main.py`).
 
 ## Debug web UI
+
+<img src="docs/images/debug-ui.png" alt="The BirdBox debug page: microphone meter and recording, BirdNET candidates, settings, servo controls, birdsong tester and Cloud variables" width="480">
 
 Switch on `debug_ui` in Arduino Cloud, then open `http://<board-ip>:7000`. The page
 shows:
