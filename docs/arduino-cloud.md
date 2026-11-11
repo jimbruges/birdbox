@@ -1,7 +1,11 @@
 # Arduino Cloud setup
 
 This guide connects the UNO Q to Arduino Cloud, creates the Thing variables the app
-syncs, and builds a dashboard to watch detections and tune the bird box.
+syncs, and builds a dashboard to watch detections and tune the bird box. There are
+two ready-made dashboards: **BirdBox Free**, which fits the Free plan, and
+**BirdBox Pro**, which uses every variable. A script can create the variables and
+both dashboards for you ([quick setup](#quick-setup-with-the-api)), or you can do
+it by hand (steps 3 and 4).
 
 The app doesn't need Cloud credentials in its code or configuration. The board's
 **arduino-cloud-connector** service owns the connection, and the app's
@@ -9,20 +13,20 @@ The app doesn't need Cloud credentials in its code or configuration. The board's
 
 ## Which plan you need
 
-The app registers **23 variables**. On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
+The app registers **24 variables**. On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
 page, the **Free** plan allows **5 variables per Thing**; **Maker** and above are
 unlimited.
 
 Every variable is optional. The [debug web UI](../README.md#debug-web-ui) can change
 every setting, and saves it on the board (`data/settings.json`), so a variable
 only needs to be on the Thing if you want it on your dashboard. On the Free plan,
-create these five:
+create these five, which the **BirdBox Free** dashboard uses:
 
 | Variable | Why |
 |---|---|
-| `listening` | Is the box alive? |
-| `last_species` | What it last heard |
-| `last_confidence` | How sure it was |
+| `last_species` | What it last heard, plus a running list of birds in a Messenger widget |
+| `detections_today` | How busy the garden has been, as a number and a chart (1 day of history on Free) |
+| `servo_enabled` | Stop the bird moving |
 | `birdsong_enabled` | Silence the buzzer, e.g. at night |
 | `debug_ui` | Lets you turn on the debug web UI, which covers calibration and tuning |
 
@@ -45,6 +49,50 @@ Starting an app that uses the Cloud brick on an unconnected board opens a
 Go to [app.arduino.cc/things](https://app.arduino.cc/things) and open the Thing your
 UNO Q is associated with. If there isn't one, create a Thing and associate the board
 with it under **Associated Device**.
+
+## Quick setup with the API
+
+`tools/setup_cloud.py` creates the variables and both dashboards through the
+[Arduino Cloud API](https://docs.arduino.cc/arduino-cloud/api/api-overview/). Do
+steps 1 and 2 first, then:
+
+1. **Create an API key** at [app.arduino.cc/api-keys](https://app.arduino.cc/api-keys).
+   Copy the Client ID and Client Secret; the secret is only shown once.
+2. **Save it on the board.** This prompts for each value, hides the secret as you
+   type, and saves to `~/.config/arduino-cloud/credentials.json`, readable only by
+   you. Leave the Space ID blank unless the Thing is in a shared space.
+
+   ```bash
+   mkdir -p ~/.config/arduino-cloud && chmod 700 ~/.config/arduino-cloud && read -rp "Client ID: " CID && read -rsp "Client secret: " CSECRET && echo && read -rp "Space ID (blank for personal space): " ORG && umask 077 && printf '{"client_id": "%s", "client_secret": "%s", "org_id": "%s"}\n' "$CID" "$CSECRET" "$ORG" > ~/.config/arduino-cloud/credentials.json && unset CSECRET && echo "Saved"
+   ```
+
+3. **Find your Thing's name**, then preview the changes. `plan` only reads:
+
+   ```bash
+   cd ~/ArduinoApps/birdbox
+   python3 tools/arduino_cloud.py things
+   python3 tools/setup_cloud.py plan --thing "<thing name>"
+   ```
+
+4. **Create the variables.** Add `--free` to create only the five Free-plan
+   variables, and `--delete-legacy` to remove ones from older versions of the app:
+
+   ```bash
+   python3 tools/setup_cloud.py thing --thing "<thing name>"
+   ```
+
+5. **Create the dashboards.** On the Free plan, add `--free` for just BirdBox Free.
+   Running it again replaces the dashboards' widgets, so it's safe to repeat:
+
+   ```bash
+   python3 tools/setup_cloud.py dashboards --thing "<thing name>"
+   ```
+
+6. Start, or restart, the app.
+
+The variables and layouts live in `tools/setup_cloud.py`, if you want to change
+them. `tools/arduino_cloud.py` is a small helper for other API calls (`things`,
+`props <thing id>`, `dashboards`, `get <path>`).
 
 ## 3. Add the variables
 
@@ -96,8 +144,11 @@ Out-of-range values are clamped by the app.
 | `species_today` | Integer Number |
 | `listening` | Boolean |
 | `servo_state` | Character String |
+| `detection_log` | Character String |
 
 Making results **Read Only** stops a dashboard widget overwriting them.
+`detection_log` gets one line per detection, like `07:14 European Robin 92%`, so a
+Messenger widget bound to it shows a running log.
 
 ### Check your location
 
@@ -111,61 +162,49 @@ hear. `0.0, 0.0` means "not set" and leaves the filter off.
 If your Thing has `sweep_enabled`, `out_position` or `servo_position`, delete them.
 The current app doesn't use them.
 
-## 4. Build the dashboard
+## 4. Build the dashboards
 
-Create a dashboard at [app.arduino.cc/dashboards](https://app.arduino.cc/dashboards),
-click **ADD → Things**, pick your Thing, then rearrange. Or add widgets one at a time
-with **ADD** and link each to its variable. A layout that works well:
+Create a dashboard at [app.arduino.cc/dashboards](https://app.arduino.cc/dashboards)
+and add widgets with **ADD**, linking each to its variable. These are the layouts
+`tools/setup_cloud.py` builds.
 
-### Row 1 — What's singing
-
-| Widget | Variable | Settings |
-|---|---|---|
-| **Status** | `listening` | Label "Listening" |
-| **Value** | `last_species` | Large text |
-| **Value** | `last_scientific_name` | |
-| **Gauge** | `last_confidence` | Min `0`, max `1` |
-| **Value** | `last_detection_at` | |
-
-### Row 2 — Today
+### BirdBox Free
 
 | Widget | Variable | Settings |
 |---|---|---|
+| **Value** | `last_species` | "Last bird" |
 | **Value** | `detections_today` | |
-| **Value** | `species_today` | |
-| **Chart** | `detections_today` | Shows the day's activity. History length depends on your plan's data retention. |
-| **Chart** | `last_confidence` | Optional, shows how confident each detection was |
+| **Switch** | `servo_enabled` | "Bird moves" |
+| **Switch** | `birdsong_enabled` | "Birdsong" |
+| **Switch** | `debug_ui` | "Debug UI" |
+| **Messenger** | `last_species` | "Birds heard": a running list of each new species |
+| **Chart** | `detections_today` | The day's activity |
 
-### Row 3 — Bird box
+### BirdBox Pro
 
-| Widget | Variable | Settings |
-|---|---|---|
-| **Switch** | `servo_enabled` | Label "Bird moves" |
-| **Switch** | `birdsong_enabled` | Label "Birdsong" |
-| **Switch** | `hold_for_song` | Label "Stay out for song" |
-| **Value** | `servo_state` | |
-| **Messenger** | `servo_command` | Type `test`, `out`, `in`, `stop` or `song` |
-
-### Row 4 — Detection tuning
-
-| Widget | Variable | Settings |
-|---|---|---|
-| **Value** (editable) | `min_confidence` | Type a number, e.g. `0.6` |
-| **Value** (editable) | `sensitivity` | |
-| **Slider** | `cooldown_seconds` | Min `0`, max `600` |
-| **Switch** | `range_filter` | |
-| **Value** (editable) | `latitude` | |
-| **Value** (editable) | `longitude` | |
-
-### Row 5 — Calibration and debug
-
-| Widget | Variable | Settings |
-|---|---|---|
-| **Slider** | `servo_speed` | Min `10`, max `100` |
-| **Slider** | `travel_ms` | Min `50`, max `1500` |
-| **Stepper** | `home_overrun` | Min `0`, max `200`, step `10` |
-| **Slider** | `hold_ms` | Min `0`, max `10000` |
-| **Switch** | `debug_ui` | Label "Debug web UI" |
+| Section | Widget | Variable | Settings |
+|---|---|---|---|
+| Now | **Status** | `listening` | Mode On / Off |
+| Now | **Value** | `last_species` | |
+| Now | **Value** | `last_scientific_name` | |
+| Now | **Value** | `last_detection_at` | |
+| Today | **Gauge** | `last_confidence` | Min `0`, max `1` |
+| Today | **Messenger** | `detection_log` | Running log of every detection |
+| Today | **Chart** | `detections_today` | |
+| Today | **Chart** | `last_confidence` | |
+| Today | **Value** | `detections_today`, `species_today` | |
+| Bird box | **Switch** | `servo_enabled`, `birdsong_enabled`, `hold_for_song` | |
+| Bird box | **Value** | `servo_state` | |
+| Bird box | **Messenger** | `servo_command` | Type `test`, `out`, `in`, `stop` or `song` |
+| Detection | **Value** (editable) | `min_confidence`, `sensitivity` | 2 decimals |
+| Detection | **Slider** | `cooldown_seconds` | Min `0`, max `600` |
+| Detection | **Switch** | `range_filter` | |
+| Detection | **Value** (editable) | `latitude`, `longitude` | 4 decimals |
+| Calibration | **Slider** | `servo_speed` | Min `10`, max `100` |
+| Calibration | **Slider** | `travel_ms` | Min `50`, max `1500` |
+| Calibration | **Stepper** | `home_overrun` | Min `0`, max `200`, step `10` |
+| Calibration | **Slider** | `hold_ms` | Min `0`, max `10000` |
+| Calibration | **Switch** | `debug_ui` | |
 
 Widgets bound to Read & Write variables are editable. Widgets bound to Read Only
 variables only display.

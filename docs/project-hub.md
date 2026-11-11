@@ -220,10 +220,12 @@ species, range filter location, servo speed and timing, and birdsong on/off. A
 Messenger widget sends test commands like `test`, `out` and `in` for calibrating
 the rail.
 
-The repository's `docs/arduino-cloud.md` lists all 23 variables with their types,
-plus a suggested dashboard layout. On the Free plan (5 variables per Thing), create
-just `listening`, `last_species`, `last_confidence`, `birdsong_enabled` and
-`debug_ui`, then set everything else from the debug web UI. Settings are saved on
+The repository's `docs/arduino-cloud.md` lists all 24 variables, and
+`tools/setup_cloud.py` creates them and two dashboards through the Arduino Cloud
+API: **BirdBox Pro**, with a running detection log, and **BirdBox Free**. On the
+Free plan (5 variables per Thing), it creates just `last_species`,
+`detections_today`, `servo_enabled`, `birdsong_enabled` and
+`debug_ui`. You then set everything else from the debug web UI. Settings are saved on
 the board, so a Cloud variable is only needed for what you want on your phone.
 
 ### Debug web UI

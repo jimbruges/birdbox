@@ -26,6 +26,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [`docs/arduino-cloud.md`](docs/arduino-cloud.md) | Step-by-step Arduino Cloud Thing and dashboard setup |
 | [`docs/project-hub.md`](docs/project-hub.md) | Arduino Project Hub write-up |
 | [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly and servo gear (STL + STEP) |
+| [`tools/`](tools/) | Arduino Cloud API scripts that create the Thing variables and the Free and Pro dashboards |
 
 ## What you need
 
@@ -43,7 +44,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
 | USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
-| Arduino Cloud account | The app uses 23 Thing variables. The Free plan allows 5 per Thing — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
+| Arduino Cloud account | The app uses 24 Thing variables. The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ## Wiring
 
@@ -133,15 +134,15 @@ and recommended widget, is in **[docs/arduino-cloud.md](docs/arduino-cloud.md)**
 1. **Connect the board:** App Lab → **Settings → Arduino Cloud → Connect device**.
    Wait for **Connected**.
 2. **Open the board's Thing** at [app.arduino.cc/things](https://app.arduino.cc/things).
-3. **Add the 23 variables** listed below. Names must match exactly — check the
+3. **Add the 24 variables** listed below, or let `tools/setup_cloud.py` create them through the API ([quick setup](docs/arduino-cloud.md#quick-setup-with-the-api)). Names must match exactly — check the
    **Declaration** field shows the same name.
 4. **Build the dashboard** from the layout in the guide.
 5. **Start the app.** Any variable with no Cloud value yet is seeded from the
    board's current value on first connect.
 
-**On the Free plan (5 variables per Thing)?** Create only `listening`,
-`last_species`, `last_confidence`, `birdsong_enabled` and `debug_ui`, then set
-everything else in the debug UI's **Settings** card. Settings are saved on the
+**On the Free plan (5 variables per Thing)?** Create only `last_species`,
+`detections_today`, `servo_enabled`, `birdsong_enabled` and `debug_ui` (the
+**BirdBox Free** dashboard uses exactly these), then set everything else in the debug UI's **Settings** card. Settings are saved on the
 board (`data/settings.json`) and survive restarts. Every variable below is optional.
 
 ### Settings — permission _Read & Write_ (Cloud → board)
@@ -179,6 +180,7 @@ stays off until you enter real coordinates.
 | `species_today` | Integer Number | `9` | Distinct species today. Resets at midnight. |
 | `listening` | Boolean | `true` | `true` only while a microphone is open. Your "is it alive" light. |
 | `servo_state` | Character String | `in` | `in`, `out`, `moving`, or `unknown` (after a `stop` mid-travel). |
+| `detection_log` | Character String | `07:14 European Robin 92%` | One line per detection, for a Messenger widget to show as a running log. |
 
 ## First run
 

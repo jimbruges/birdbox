@@ -91,6 +91,10 @@ def on_bird(detection: Detection) -> None:
     cloud.last_detection_at = detection.timestamp.isoformat(timespec="seconds")
     cloud.detections_today = _detections_today
     cloud.species_today = len(_species_today)
+    # One line per detection, for a Messenger widget to show as a running log.
+    cloud.detection_log = (
+        f"{detection.timestamp:%H:%M} {detection.common_name} {round(detection.confidence * 100)}%"
+    )
 
     if servo_enabled:
         # Fire-and-forget: the sketch runs the out/hold/retract cycle on its own
@@ -398,6 +402,7 @@ register_variable("detections_today", value=0, sync=DEVICE_WINS)
 register_variable("species_today", value=0, sync=DEVICE_WINS)
 register_variable("listening", value=False, sync=DEVICE_WINS)
 register_variable("servo_state", value="unknown", sync=DEVICE_WINS)
+register_variable("detection_log", value="", sync=DEVICE_WINS)
 
 # Apply everything that runs on this side; the sketch's settings follow once it
 # answers (see heartbeat).
