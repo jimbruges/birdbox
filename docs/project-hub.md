@@ -1,9 +1,17 @@
 # Project Hub draft — BirdBox
 
 Copy each section into the matching field of the Project Hub editor. Replace each
-`[PHOTO: …]` or `[VIDEO: …]` placeholder with your own media.
+`[PHOTO: …]` or `[VIDEO: …]` placeholder with your own media. Images referenced
+here are in the repository's `docs/images/` folder; upload them to Project Hub where
+they appear.
 
 ---
+
+## Cover image
+
+![BirdBox cover](images/cover_robin.png)
+
+`docs/images/cover_robin.png` (1080 × 1920, portrait).
 
 ## Title
 
@@ -59,7 +67,7 @@ Intermediate · about 3 hours, plus printing time
 
 ## Story
 
-[PHOTO: the finished bird box, model bird out of the hole]
+![The finished bird box installed by a window, with the felt robin out of the hole](images/stills/14_installed_robin_out.jpg)
 
 ### The idea
 
@@ -111,9 +119,11 @@ servo gear comes from that design, used under CC BY.
 **Printing the servo assembly:** it's print-in-place, so put the **mounting face on
 the build plate** and use **organic supports**.
 
+![The UNO Q held up next to the finished box](images/stills/06_parts_uno_q.jpg)
+
 ### Building the outdoor microphone
 
-[PHOTO: mic holder with mic, adapter and cable, before and after sealing]
+![The printed mic house mounted outside](images/stills/12_mic_house_post.jpg)
 
 The board lives indoors, but the microphone needs to be outside to hear birds
 properly.
@@ -131,9 +141,14 @@ clearly.
 
 ### Building the servo bird box
 
-[PHOTO: inside the box — servo assembly, gear and bird]
+| | |
+|---|---|
+| ![Building the box](images/stills/01_build_assemble.jpg) | ![Sanded box](images/stills/02_build_box_sanded.jpg) |
+| ![Painting the box](images/stills/03_build_painting.jpg) | ![Painted box](images/stills/04_build_painted.jpg) |
 
-[PHOTO: the bird box from the front, with the bird hole]
+![Inside the box: servo, printed rack and gear, and the felt robin](images/stills/08_inside_servo_robin.jpg)
+
+![The box opened from the side, showing the servo assembly mounted inside](images/stills/07_inside_open_side.jpg)
 
 1. **Fit the gear** onto the FS90R's shaft. Screw it on with the servo's screw, or
    glue it.
@@ -149,6 +164,12 @@ An FS90R is a continuous-rotation servo, which spins rather than moving to an
 angle. So the ends of the assembly's travel act as **hard stops**: the sketch drives
 towards one end for a fixed time plus a small overrun, then releases the servo. No
 encoder or homing switch is needed, and the bird can't drift out of calibration.
+
+| | |
+|---|---|
+| ![The finished box on the desk with the mic house](images/stills/09_final_desk_robin.jpg) | ![Close-up of the felt robin in the entrance hole](images/stills/11_final_robin_closeup.jpg) |
+
+![The box installed by a window](images/stills/13_installed_window.jpg)
 
 ### Wiring
 

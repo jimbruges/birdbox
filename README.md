@@ -1,10 +1,12 @@
 # 🐦 BirdBox
 
+<img src="docs/images/stills/10_final_front_robin.jpg" alt="The yellow BirdBox with a felt robin in the entrance hole and the small mic house beside it" width="420">
+
 A smart bird box for the **Arduino UNO Q**. It listens through a microphone,
 identifies bird species on-device with **BirdNET GLOBAL 6K V2.4** (6522 classes),
-and publishes every detection to **Arduino Cloud**. When it hears a bird, a model
-bird slides out of the box hole on an **FS90R servo** rail and sings a simulated
-song for that species on a **Modulino Buzzer**.
+and publishes every detection to **Arduino Cloud**. When it hears a bird, a felt
+bird slides out of the box hole on an **FS90R servo** rail while a **Modulino
+Buzzer** plays an approximation of that species' song.
 
 No audio leaves the board. Inference runs locally on the UNO Q's Linux side in
 about 225 ms per 3-second window, roughly 13× faster than real time.
@@ -94,8 +96,10 @@ it's sealed.
 
 ### Servo assembly and bird
 
+<img src="docs/images/stills/08_inside_servo_robin.jpg" alt="Inside the box: the FS90R servo, printed rack and gear, with the felt robin on the arm" width="560">
+
 The linear servo assembly is based on
-[Linear servo using SG90 9g servo]({P}) by
+[Linear servo using SG90 9g servo](https://www.printables.com/model/1566678-linear-servo-using-sg90-9g-servo) by
 **lingeswaran** on Printables (CC BY). The servo gear is from that design too.
 
 1. **Print the assembly** print-in-place: put the **mounting face on the build
