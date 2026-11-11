@@ -15,3 +15,6 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# Raw screen recordings (stills and GIFs are extracted to docs/images)
+docs/*.mp4

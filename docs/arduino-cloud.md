@@ -170,6 +170,12 @@ and add widgets with **ADD**, linking each to its variable. These are the layout
 
 ### BirdBox Free
 
+![BirdBox Free dashboard on a desktop](images/dashboard-free-desktop.png)
+
+Switching the bird off and on again from the dashboard:
+
+![Toggling the Bird moves switch on the BirdBox Free dashboard](images/dashboard-free-toggle.gif)
+
 | Widget | Variable | Settings |
 |---|---|---|
 | **Value** | `last_species` | "Last bird" |
@@ -181,6 +187,10 @@ and add widgets with **ADD**, linking each to its variable. These are the layout
 | **Chart** | `detections_today` | The day's activity |
 
 ### BirdBox Pro
+
+![BirdBox Pro dashboard on a desktop](images/dashboard-pro-desktop.png)
+
+<img src="images/dashboard-pro-phone-scroll.gif" alt="Scrolling through BirdBox Pro on a phone" width="300">
 
 | Section | Widget | Variable | Settings |
 |---|---|---|---|
@@ -205,6 +215,13 @@ and add widgets with **ADD**, linking each to its variable. These are the layout
 | Calibration | **Stepper** | `home_overrun` | Min `0`, max `200`, step `10` |
 | Calibration | **Slider** | `hold_ms` | Min `0`, max `10000` |
 | Calibration | **Switch** | `debug_ui` | |
+
+The script also sets a phone layout for each dashboard, keeping the same order with
+small widgets two to a row:
+
+| BirdBox Free on a phone | BirdBox Pro on a phone |
+|---|---|
+| <img src="images/dashboard-free-phone.png" alt="BirdBox Free phone layout" width="300"> | <img src="images/dashboard-pro-phone.png" alt="BirdBox Pro phone layout" width="300"> |
 
 Widgets bound to Read & Write variables are editable. Widgets bound to Read Only
 variables only display.

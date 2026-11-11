@@ -213,7 +213,14 @@ ignore any audio window that overlaps its own song, so the box never answers its
 
 ### Arduino Cloud dashboard
 
-[SCREENSHOT: the dashboard]
+![BirdBox Pro dashboard](images/dashboard-pro-desktop.png)
+
+![BirdBox Free dashboard](images/dashboard-free-desktop.png)
+
+![Scrolling BirdBox Pro on a phone](images/dashboard-pro-phone-scroll.gif)
+
+> Upload `docs/images/dashboard-pro-desktop.png`, `dashboard-free-desktop.png` and
+> `dashboard-pro-phone-scroll.gif` from the repository to Project Hub here.
 
 Everything is tunable from the dashboard: confidence threshold, cooldown per
 species, range filter location, servo speed and timing, and birdsong on/off. A

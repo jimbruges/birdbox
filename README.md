@@ -128,6 +128,10 @@ set up Arduino Cloud.
 
 ## Arduino Cloud setup
 
+| BirdBox Pro | BirdBox Free |
+|---|---|
+| ![BirdBox Pro dashboard: listening status, last bird, confidence gauge, detection log, charts, switches and calibration sliders](docs/images/dashboard-pro-desktop.png) | ![BirdBox Free dashboard: last bird, detections today, three switches, a list of birds heard and a detections chart](docs/images/dashboard-free-desktop.png) |
+
 The short version — the full walkthrough, with every variable's type, permission
 and recommended widget, is in **[docs/arduino-cloud.md](docs/arduino-cloud.md)**:
 

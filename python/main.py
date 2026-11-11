@@ -392,17 +392,21 @@ for _name, _spec in SETTINGS.items():
 register_variable("servo_command", value="", on_write=run_command)
 
 # --- Results published up to the Cloud -------------------------------------
+# The last detection keeps the Cloud's value across a restart (CLOUD_WINS), so
+# the dashboard still shows the last bird and Messenger widgets don't get a
+# blank entry each time the app starts.
+register_variable("last_species", value="")
+register_variable("last_scientific_name", value="")
+register_variable("last_confidence", value=0.0)
+register_variable("last_detection_at", value="")
+register_variable("detection_log", value="")
+
 # DEVICE_WINS: on reconnect the board's reading is the truth, not a stale
 # value the Cloud is still holding from the last session.
-register_variable("last_species", value="", sync=DEVICE_WINS)
-register_variable("last_scientific_name", value="", sync=DEVICE_WINS)
-register_variable("last_confidence", value=0.0, sync=DEVICE_WINS)
-register_variable("last_detection_at", value="", sync=DEVICE_WINS)
 register_variable("detections_today", value=0, sync=DEVICE_WINS)
 register_variable("species_today", value=0, sync=DEVICE_WINS)
 register_variable("listening", value=False, sync=DEVICE_WINS)
 register_variable("servo_state", value="unknown", sync=DEVICE_WINS)
-register_variable("detection_log", value="", sync=DEVICE_WINS)
 
 # Apply everything that runs on this side; the sketch's settings follow once it
 # answers (see heartbeat).
