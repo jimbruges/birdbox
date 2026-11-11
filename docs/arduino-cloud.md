@@ -217,11 +217,7 @@ Switching the bird off and on again from the dashboard:
 | Calibration | **Switch** | `debug_ui` | |
 
 The script also sets a phone layout for each dashboard, keeping the same order with
-small widgets two to a row:
-
-| BirdBox Free on a phone | BirdBox Pro on a phone |
-|---|---|
-| <img src="images/dashboard-free-phone.png" alt="BirdBox Free phone layout" width="300"> | <img src="images/dashboard-pro-phone.png" alt="BirdBox Pro phone layout" width="300"> |
+small widgets two to a row.
 
 Widgets bound to Read & Write variables are editable. Widgets bound to Read Only
 variables only display.

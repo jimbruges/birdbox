@@ -252,14 +252,15 @@ found` and `BirdBox servo ready, retracting` to the serial monitor
 
 ## Birdsong
 
-A piezo plays one pitch at a time, so each song is a sketch of the real thing — its
-rhythm, pitch range and shape — written as pitch sweeps in `python/songs.py`:
+A piezo plays one pitch at a time, so each song is a list of pitch sweeps in
+`python/songs.py`. The songs are approximations, not recordings:
 
-1. **70 UK birds** have a hand-made song: garden birds (blackbird, great tit,
-   chaffinch, wren…), woodland and farmland (woodpecker drumming, yellowhammer,
-   skylark…), summer visitors (swallow, swift, nightingale…), water and coast
-   (mallard, curlew, herring gull…), raptors and owls (red kite, buzzard, tawny
-   owl…).
+1. **70 UK species** have a predefined song: a generated sequence of sweeps, notes
+   and trills set to roughly match the species' pitch range and rhythm. They cover
+   garden birds (blackbird, great tit, chaffinch, wren…), woodland and farmland
+   (woodpeckers, yellowhammer, skylark…), summer visitors (swallow, swift,
+   nightingale…), water and coast (mallard, curlew, herring gull…), and raptors and
+   owls (red kite, buzzard, tawny owl…).
 2. A species **in the same genus** as one of those borrows its song, re-pitched and
    re-timed, so it sounds similar but not identical.
 3. **Anything else** gets a song generated from its scientific name — a trill,
@@ -293,7 +294,7 @@ shows:
   immediately, are saved on the board, and are sent to Arduino Cloud for variables
   your Thing defines. On start-up, the Cloud's value wins for those.
 - **Servo:** rail state and In / Out / Test / Stop.
-- **Birdsong:** buzzer status, and buttons to play any hand-made song or any species
+- **Birdsong:** buzzer status, and buttons to play any predefined song or any species
   by scientific name (works even while `birdsong_enabled` is off).
 - **Cloud variables:** every variable the app registers and its current value.
 

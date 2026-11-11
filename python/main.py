@@ -496,7 +496,7 @@ def api_servo(body: dict) -> dict:
 
 
 def api_songs() -> dict:
-    """The hand-made songs, for the debug UI's species picker."""
+    """The predefined songs, for the debug UI's species picker."""
     _require_debug()
     curated = [{"scientific": sci, "name": common} for sci, (common, _) in songs.CURATED.items()]
     return {"curated": sorted(curated, key=lambda s: s["name"])}

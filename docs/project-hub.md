@@ -7,12 +7,13 @@ Copy each section into the matching field of the Project Hub editor. Replace eac
 
 ## Title
 
-**BirdBox: A Bird Box That Sings Back, with On-Device Bird ID on the UNO Q**
+**BirdBox: On-Device Bird Identification with the Arduino UNO Q**
 
 ## Short description
 
-A bird box that recognises 6,500 bird species on-device with BirdNET, logs them to
-Arduino Cloud, then slides out a model bird that sings the species' song.
+A bird box that identifies birds on-device with BirdNET (6,522 classes), logs them
+to Arduino Cloud, and moves a felt bird out of the box while a buzzer plays an
+approximation of that species' song.
 
 ## Tags
 
@@ -64,8 +65,8 @@ Intermediate · about 3 hours, plus printing time
 
 Bird-ID apps on a phone are great, but you have to be holding the phone at the
 moment a bird sings. I wanted a box that sits in the garden and listens all day,
-tells me who visited, and does something delightful when a bird calls: a little
-wooden bird pops out of the hole and sings back.
+tells me who visited, and responds when a bird calls: a felt bird comes out of
+the hole and the box plays a song for that species.
 
 The **Arduino UNO Q** suits this well. Its Linux side runs Cornell's **BirdNET**
 model in real time, with no cloud inference and no audio leaving the garden. Its
@@ -105,7 +106,7 @@ All the print files (STL, plus STEP for remixing) are in the repository's
 
 The servo assembly is based on
 [Linear servo using SG90 9g servo](https://www.printables.com/model/1566678-linear-servo-using-sg90-9g-servo) by lingeswaran on Printables, and the
-servo gear comes from that design. Thanks for sharing it under CC BY!
+servo gear comes from that design, used under CC BY.
 
 **Printing the servo assembly:** it's print-in-place, so put the **mounting face on
 the build plate** and use **organic supports**.
@@ -169,7 +170,7 @@ encoder or homing switch is needed, and the bird can't drift out of calibration.
 
 > **Power tip:** the UNO Q's USB-C port doesn't supply power to USB devices, even
 > when the board is powered from VIN. I first tried plugging the mic straight in
-> and it never appeared. The Arduino USB-C Hub (8-in-1) solves it neatly: a small
+> and it never appeared. The Arduino USB-C Hub (8-in-1) solves this: a small
 > charger in the hub's power port powers the board through the passthrough, and
 > the mic plugs into the hub's data port.
 
@@ -193,22 +194,21 @@ It shows up in App Lab under **My Apps**. The app has four parts:
 - **`sketch/sketch.ino`** — the microcontroller side: non-blocking servo moves and
   song playback, controlled over the Router Bridge.
 
-### Making a piezo sing like a bird
+### Birdsong on the buzzer
 
-A buzzer plays one pitch at a time, so each song captures a species' rhythm, pitch
-range and shape as a list of pitch sweeps. The sketch plays each sweep smoothly in
-10 ms steps.
+A piezo buzzer plays one pitch at a time, so each song is a list of pitch sweeps,
+played in 10 ms steps. The songs are approximations, not recordings.
 
-- **70 UK species** have a hand-written song: the blackbird's fluting phrases, the
-  great tit's "teacher-teacher", the chaffinch's descending run and flourish, the
-  woodpecker's drum roll, the tawny owl's hoot and more.
-- A species **in the same genus** as one of those borrows its relative's song,
-  slightly re-pitched and re-timed.
-- **Anything else** gets a song generated from its scientific name, so every
-  species always sounds the same and recognisably different from the others.
+- **70 UK species** have a predefined song in `python/songs.py`: a generated
+  sequence of sweeps, notes and trills set to roughly match that species' pitch
+  range and rhythm.
+- A species **in the same genus** as one of those uses its relative's song,
+  re-pitched and re-timed.
+- **Any other species** gets a song generated from its scientific name, so it's
+  the same every time.
 
-There's one catch: a box that sings bird calls next to a microphone that listens
-for bird calls will happily detect itself. The app tells the BirdNET brick to
+A box that plays bird calls next to a microphone listening for bird calls would
+detect itself. The app tells the BirdNET brick to
 ignore any audio window that overlaps its own song, so the box never answers itself.
 
 ### Arduino Cloud dashboard
@@ -267,8 +267,8 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 - **Turn on the range filter** with your coordinates. It cuts 6,522 classes down to
   the ~150 plausible species, and removes the odd "Andean hummingbird" from a noisy
   recording. Latitude comes first: Cambridge, UK is `52.2053, 0.1218`.
-- **Raise `cooldown_seconds`** during the dawn chorus so one chatty robin doesn't
-  flood your dashboard.
+- **Raise `cooldown_seconds`** during the dawn chorus so a single bird calling
+  repeatedly doesn't flood your dashboard.
 - **Power:** a servo stalling against an end stop draws a few hundred mA from the
   5 V rail. If the board resets when the bird moves, try a stronger charger.
 
@@ -276,7 +276,7 @@ The defaults (travel 320 ms at 40% speed, 30 ms overrun, 500 ms hold) suit a
 
 - A solar panel and battery for a fully off-grid box
 - Logging detections to a Cloud chart and comparing seasons
-- More hand-written songs. PRs welcome!
+- More predefined songs
 
 ### Credits and licence
 

@@ -2,15 +2,15 @@
 
 """Simulated birdsong for the Modulino Buzzer.
 
-A piezo can only play one square-wave pitch at a time, so these are sketches
-of each song rather than recordings: the rhythm, pitch range and shape (trill,
-two-note call, descending flourish, coo...) of the real thing.
+A piezo can only play one square-wave pitch at a time, so these are rough
+approximations rather than recordings, set to the species' pitch range and
+rhythm (trill, two-note call, descending run, coo...).
 
 A song is a list of segments `(start_hz, end_hz, ms)`. Equal frequencies are a
 steady note, unequal ones a sweep, and 0 Hz is a rest. The sketch plays them.
 
 Species are matched in three steps:
-1. a hand-made song for common UK garden birds, keyed by scientific name;
+1. a predefined song for 70 UK species, keyed by scientific name;
 2. otherwise the song of a curated bird from the same genus, re-pitched;
 3. otherwise a song generated from the name, so each species always gets the
    same one.
@@ -85,7 +85,7 @@ def warble(seed: int, count: int, low_hz: int, high_hz: int) -> list[Segment]:
 
 
 def _chaffinch() -> list[Segment]:
-    # An accelerating, descending run, then the terminal flourish.
+    # An accelerating, descending run, then a short final phrase.
     out: list[Segment] = []
     for i in range(12):
         out += [note(5200 - i * 130, 45), rest(60 - i * 4)]
