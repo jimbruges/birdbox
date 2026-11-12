@@ -22,7 +22,7 @@ import math
 import threading
 import time
 import wave
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -34,13 +34,18 @@ from arduino.app_utils import App, Bridge, Logger
 
 from birdnet import SAMPLE_RATE, BirdNET, Detection
 
+import birdinfo
+import history
+import receipts
 import songs
+from printer import Printer
 
 logger = Logger("BirdBox")
 
 birds = BirdNET()
 cloud = ArduinoCloud()
 web_ui = WebUI()
+printer = Printer()
 
 # Every Cloud variable registered below, so the debug UI can list them all.
 variable_names: list[str] = []
@@ -104,6 +109,15 @@ def on_bird(detection: Detection) -> None:
     if birdsong_enabled:
         # With the servo on, the song waits until the bird is fully out.
         play_song(detection.scientific_name, wait_for_bird=servo_enabled)
+
+    history.record(detection.timestamp, detection.scientific_name, detection.common_name, detection.confidence)
+    # Fetch the picture and description now, so a card prints without waiting.
+    birdinfo.prefetch(detection.scientific_name, detection.common_name,
+                      use_llm=settings["card_description"] and settings["card_llm"])
+    if settings["printer_enabled"] and settings["print_each_detection"]:
+        line = receipts.scroll_line(common=detection.common_name, when=detection.timestamp,
+                                    confidence=detection.confidence)
+        printer.submit(line, f"scroll line for {detection.common_name}", tear=False)
 
 
 _buzzer_missing_logged = False
@@ -276,6 +290,23 @@ def apply_hold_for_song(value: bool) -> None:
     logger.info(f"Bird {'stays out for the song' if value else 'stays out for hold_ms only'}")
 
 
+# --- Printer -----------------------------------------------------------------
+# Optional. With no printer attached every print is skipped with a log line,
+# and the debug page still previews each receipt.
+
+
+def apply_printer_device(value: str) -> None:
+    printer.device_setting = value
+    found = printer.device
+    logger.info(f"Printer: {found or 'none found'} (setting {value!r})")
+
+
+def apply_logged(name: str):
+    def apply(value: object) -> None:
+        logger.info(f"{name} set to {value}")
+    return apply
+
+
 # name: (type, default, min, max, step, handler, group, label, unit, synced to Cloud)
 # The ones that drive the sketch are re-sent whenever the sketch (re)connects.
 SETTINGS = {
@@ -293,6 +324,14 @@ SETTINGS = {
     "travel_ms": (int, 320, 50, 3000, 10, apply_travel_ms, "Servo", "Travel (at 100%)", "ms", True),
     "home_overrun": (int, 30, 0, 1000, 5, apply_home_overrun, "Servo", "Overrun into stop", "ms", True),
     "hold_ms": (int, 500, 0, 30000, 100, apply_hold_ms, "Servo", "Hold out", "ms", True),
+    "printer_enabled": (bool, True, None, None, None, apply_logged("Printing"), "Printer", "Printing on", "", True),
+    "print_each_detection": (bool, False, None, None, None, apply_logged("Detection scroll"), "Printer", "Print a line for every detection", "", True),
+    "card_picture": (bool, True, None, None, None, apply_logged("Card picture"), "Printer", "Card: silhouette", "", True),
+    "card_song": (bool, True, None, None, None, apply_logged("Card song"), "Printer", "Card: song contour", "", True),
+    "card_description": (bool, True, None, None, None, apply_logged("Card description"), "Printer", "Card: description", "", True),
+    "card_llm": (bool, True, None, None, None, apply_logged("LLM descriptions"), "Printer", "Description written by the local LLM", "", True),
+    "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
+    "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "Printer device", "", False),
     "debug_ui": (bool, False, None, None, None, apply_debug_ui, "Debug", "Debug UI", "", True),
 }
 SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song")
@@ -304,6 +343,8 @@ def _coerce(name: str, value: object) -> object:
     try:
         if kind is bool:
             value = value.strip().lower() in ("1", "true", "on", "yes") if isinstance(value, str) else bool(value)
+        elif kind is str:
+            value = str(value).strip() or default
         else:
             value = kind(float(value))
     except (TypeError, ValueError):
@@ -347,6 +388,91 @@ if _saved:
 TEST_SPECIES = "Erithacus rubecula"
 
 
+# --- Receipts ------------------------------------------------------------------
+
+
+def _last_bird() -> dict | None:
+    """The last detection: from the log, or the Cloud's last values before v2 kept a log."""
+    last = history.last()
+    if last:
+        return last
+    sci = cloud.get("last_scientific_name", "")
+    if not sci:
+        return None
+    try:
+        when = datetime.fromisoformat(cloud.get("last_detection_at", ""))
+    except ValueError:
+        when = datetime.now()
+    return {"when": when, "scientific": sci, "common": cloud.get("last_species", sci),
+            "confidence": float(cloud.get("last_confidence", 0) or 0)}
+
+
+def build_card() -> tuple[object, dict | None]:
+    """(image, the bird it describes) for the last species heard."""
+    bird = _last_bird()
+    if bird is None:
+        return receipts.scroll_line(common="No birds heard yet", when=datetime.now(), confidence=0), None
+    today, total = history.counts(bird["scientific"])
+    picture = birdinfo.silhouette(bird["scientific"]) if settings["card_picture"] else None
+    text = (birdinfo.description(bird["scientific"], use_llm=settings["card_llm"])
+            if settings["card_description"] else None)
+    song = songs.song_for(bird["scientific"])[0] if settings["card_song"] else None
+    image = receipts.bird_card(common=bird["common"], scientific=bird["scientific"], when=bird["when"],
+                               confidence=bird["confidence"], today=max(today, 1), total=max(total, 1),
+                               song=song, picture=picture, description=text and text[0],
+                               description_source=text[1] if text else "wikipedia")
+    return image, bird
+
+
+def build_summary():
+    return receipts.daily_summary(summary=history.day_summary(), hourly=history.hourly_last_24h(),
+                                  when=datetime.now())
+
+
+def build_line():
+    bird = _last_bird()
+    if bird is None:
+        return receipts.scroll_line(common="No birds heard yet", when=datetime.now(), confidence=0)
+    return receipts.scroll_line(common=bird["common"], when=bird["when"], confidence=bird["confidence"])
+
+
+RECEIPTS = ("card", "summary", "line")
+
+
+def build_receipt(kind: str):
+    if kind == "card":
+        return build_card()[0]
+    return build_summary() if kind == "summary" else build_line()
+
+
+def print_receipt(kind: str) -> bool:
+    """Render and queue one receipt. Runs the rendering off the caller's thread."""
+    if not settings["printer_enabled"]:
+        logger.info(f"Printing is off, not printing the {kind}")
+        return False
+    if printer.device is None:
+        logger.info(f"No printer found, not printing the {kind}")
+        return False
+
+    def run() -> None:
+        try:
+            if kind == "card":
+                image, bird = build_card()
+                if printer.submit(image, "bird card") and bird:
+                    # Next card for this species gets a freshly written entry.
+                    birdinfo.printed(bird["scientific"], bird["common"],
+                                     use_llm=settings["card_description"] and settings["card_llm"])
+            elif kind == "summary":
+                printer.submit(build_summary(), "daily summary")
+            else:
+                printer.submit(build_line(), "scroll line", tear=False)
+        except Exception as err:  # noqa: BLE001 - a rendering bug must not take the app down
+            logger.warning(f"Could not build the {kind}: {err}")
+
+    threading.Thread(target=run, name=f"print-{kind}", daemon=True).start()
+    return True
+
+
 def run_command(client: object, value: str) -> None:
     """Calibration commands, sent from a Messenger widget on the dashboard."""
     global _clear_command
@@ -372,8 +498,10 @@ def run_command(client: object, value: str) -> None:
             play_song(TEST_SPECIES, wait_for_bird=True)
     elif command == "song":
         play_song(cloud.get("last_scientific_name", "") or TEST_SPECIES)
+    elif command in RECEIPTS:
+        print_receipt(command)
     else:
-        logger.warning(f"Unknown command {command!r}. Use: in, out, stop, test, song")
+        logger.warning(f"Unknown command {command!r}. Use: in, out, stop, test, song, card, summary, line")
         return
 
     logger.info(f"Servo command: {command}")
@@ -407,6 +535,12 @@ register_variable("detections_today", value=0, sync=DEVICE_WINS)
 register_variable("species_today", value=0, sync=DEVICE_WINS)
 register_variable("listening", value=False, sync=DEVICE_WINS)
 register_variable("servo_state", value="unknown", sync=DEVICE_WINS)
+
+# Have the last bird's card extras ready straight after a restart.
+_startup_bird = _last_bird()
+if _startup_bird:
+    birdinfo.prefetch(_startup_bird["scientific"], _startup_bird["common"],
+                      use_llm=settings["card_description"] and settings["card_llm"])
 
 # Apply everything that runs on this side; the sketch's settings follow once it
 # answers (see heartbeat).
@@ -479,6 +613,13 @@ def api_status() -> dict:
         "birdsong": {
             "enabled": birdsong_enabled,
             "buzzer_found": _buzzer_found,
+        },
+        "printer": {
+            "enabled": settings["printer_enabled"],
+            "device": printer.device,
+            "printed": printer.printed,
+            "last_error": printer.last_error,
+            "llm": birdinfo.last_exchange(),
         },
         "settings": _settings_schema(),
         "variables": {name: _jsonable(cloud.get(name)) for name in variable_names},
@@ -568,6 +709,31 @@ def api_sample(seconds: float = 3.0, boosted: bool = False) -> Response:
     return Response(content=_wav_bytes(samples), media_type="audio/wav", headers=headers)
 
 
+def api_receipt(kind: str = "card") -> Response:
+    """A receipt as the printer would print it, for previews."""
+    _require_debug()
+    if kind not in RECEIPTS:
+        raise HTTPException(status_code=400, detail=f"Unknown receipt {kind!r}")
+    image = build_receipt(kind)
+    buffer = io.BytesIO()
+    image.convert("L").save(buffer, "PNG")
+    return Response(content=buffer.getvalue(), media_type="image/png",
+                    headers={"X-Paper-mm": str(receipts.paper_mm(image)), "Cache-Control": "no-store"})
+
+
+def api_print(body: dict) -> dict:
+    _require_debug()
+    kind = str(body.get("kind", ""))
+    if kind not in RECEIPTS:
+        raise HTTPException(status_code=400, detail=f"Unknown receipt {kind!r}")
+    if not print_receipt(kind):
+        raise HTTPException(status_code=409, detail="Printing is off" if not settings["printer_enabled"]
+                            else "No printer found")
+    return {"ok": True, "kind": kind}
+
+
+web_ui.expose_api("GET", "/api/receipt", api_receipt)
+web_ui.expose_api("POST", "/api/print", api_print)
 web_ui.expose_api("GET", "/api/sample", api_sample)
 web_ui.expose_api("GET", "/api/status", api_status)
 web_ui.expose_api("POST", "/api/servo", api_servo)
@@ -580,6 +746,21 @@ web_ui.expose_api("POST", "/api/birdsong", api_birdsong)
 _last_state: str | None = None
 _buzzer_found: bool | None = None
 _clear_command = False
+_summary_printed_on: date | None = None
+
+# Panel buttons: bit n of the sketch's button_presses() is button n+1.
+BUTTON_ACTIONS = {1: "card", 2: "summary"}
+
+
+def _check_schedule() -> None:
+    """Print the daily summary once, at the start of summary_hour."""
+    global _summary_printed_on
+    hour = settings["summary_hour"]
+    now = datetime.now()
+    if hour >= 0 and now.hour == hour and _summary_printed_on != now.date():
+        _summary_printed_on = now.date()
+        logger.info("Printing the scheduled daily summary")
+        print_receipt("summary")
 
 
 def heartbeat() -> None:
@@ -599,6 +780,7 @@ def heartbeat() -> None:
     try:
         with _bridge_lock:
             state = RAIL_STATES.get(Bridge.call("servo_state"), "unknown")
+            presses = Bridge.call("button_presses")
             if _buzzer_found is None:
                 _buzzer_found = bool(Bridge.call("buzzer_present"))
                 logger.info(f"Modulino Buzzer {'found' if _buzzer_found else 'not found'}")
@@ -606,6 +788,11 @@ def heartbeat() -> None:
         if _last_state is None:
             logger.warning(f"Sketch not answering yet: {err}")
         return
+    for bit, kind in BUTTON_ACTIONS.items():
+        if presses & (1 << (bit - 1)):
+            logger.info(f"Button {bit} pressed: {kind}")
+            print_receipt(kind)
+    _check_schedule()
     if state != _last_state:
         if _last_state is None:
             logger.info(f"Sketch connected, rail {state}")

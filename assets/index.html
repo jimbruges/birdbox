@@ -186,6 +186,12 @@
   .setting .unit { color: var(--muted); }
   .setting input[type="number"] { width: 90px; }
   .pill.local { font-size: 11px; padding: 0 8px; }
+  .receipt { margin-top: 8px; }
+  .receipt img { width: 384px; max-width: 100%; image-rendering: pixelated; background: #fff;
+                 border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+  .llm { margin-top: 10px; }
+  .llm pre { white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; }
+  .setting input[type="text"] { width: 160px; }
   @media (max-width: 420px) {
     body { padding: 12px; }
     .row label { min-width: 0; width: 100%; }
@@ -288,6 +294,31 @@
     </div>
 
     <div class="muted">The song starts once the bird is fully out. With "Stay out until the song ends" on, Hold out is the minimum. Test sings the European Robin when birdsong is on.</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Printer</h2>
+    <div class="row">
+      <span class="pill" id="printerOn">-</span>
+      <span class="pill" id="printerDevice">-</span>
+      <span class="muted" id="printerCount"></span>
+    </div>
+    <div class="muted">Previews are exactly what prints: 384 dots wide, 8 dots per mm. Printer settings are under Settings.</div>
+    <div class="row">
+      <button type="button" data-preview="card">Preview bird card</button>
+      <button type="button" data-preview="summary">Preview daily summary</button>
+      <button type="button" data-preview="line">Preview scroll line</button>
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="btnPrint" disabled>Print this</button>
+      <span class="muted" id="receiptInfo">Pick a receipt to preview.</span>
+    </div>
+    <div class="receipt"><img id="receiptImg" alt="Receipt preview" hidden></div>
+    <details class="llm">
+      <summary>Local LLM description: <span id="llmStatus">-</span></summary>
+      <div class="muted" id="llmSpecies"></div>
+      <pre id="llmText"></pre>
+    </details>
   </section>
 
   <section class="card wide">
@@ -467,6 +498,39 @@
       : "";
   }
 
+  function renderPrinter(pr) {
+    if (!pr) return;
+    $("printerOn").textContent = pr.enabled ? "printing on" : "printing off";
+    $("printerOn").className = "pill " + (pr.enabled ? "ok" : "warn");
+    $("printerDevice").textContent = pr.device ? pr.device : "no printer found";
+    $("printerDevice").className = "pill " + (pr.device ? "ok" : "");
+    $("printerCount").textContent = (pr.printed ? `${pr.printed} printed since start` : "") +
+      (pr.last_error ? ` · last error: ${pr.last_error}` : "");
+    const llm = pr.llm || {};
+    $("llmStatus").textContent = llm.status || "idle";
+    $("llmSpecies").textContent = llm.species ? `${llm.species}${llm.grounded != null ? ` · grounded ${llm.grounded}` : ""}` : "";
+    $("llmText").textContent = llm.text || llm.raw || "";
+  }
+
+  let previewKind = null;
+
+  async function preview(kind) {
+    previewKind = kind;
+    try {
+      const res = await fetch(`/api/receipt?kind=${kind}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const url = URL.createObjectURL(await res.blob());
+      const img = $("receiptImg");
+      if (img.src) URL.revokeObjectURL(img.src);
+      img.src = url;
+      img.hidden = false;
+      $("receiptInfo").textContent = `${kind}: ${res.headers.get("X-Paper-mm")} mm of paper`;
+      $("btnPrint").disabled = false;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
   function renderBirdsong(song) {
     $("songOn").textContent = song.enabled ? "birdsong on" : "birdsong off";
     $("songOn").className = "pill " + (song.enabled ? "ok" : "warn");
@@ -545,6 +609,18 @@
         label.append(box, " " + s.label);
         row.appendChild(label);
         c.box = box;
+      } else if (s.type === "str") {
+        const label = document.createElement("label");
+        label.htmlFor = id;
+        label.textContent = s.label;
+        const box = document.createElement("input");
+        box.type = "text";
+        box.id = id;
+        box.addEventListener("focus", touch);
+        box.addEventListener("input", touch);
+        box.addEventListener("change", () => applySetting(s.name, box.value));
+        row.append(label, box);
+        c.num = box;
       } else {
         const label = document.createElement("label");
         label.htmlFor = id;
@@ -641,6 +717,7 @@
       renderServo(data.servo);
       renderSettings(data.settings || []);
       renderBirdsong(data.birdsong);
+      renderPrinter(data.printer);
       renderVariables(data.variables);
       if (!songsLoaded) loadSongs();
       debugOn = true;
@@ -690,6 +767,14 @@
     $("btnTest").addEventListener("click", () => send("test"));
     $("btnSong").addEventListener("click", () => playSong($("songPick").value));
     $("btnSongName").addEventListener("click", () => playSong($("songName").value.trim()));
+    document.querySelectorAll("button[data-preview]").forEach((b) =>
+      b.addEventListener("click", () => preview(b.dataset.preview)));
+    $("btnPrint").addEventListener("click", () => {
+      if (!previewKind) return;
+      api("/api/print", { kind: previewKind })
+        .then(() => toast(`Sent the ${previewKind} to the printer`))
+        .catch((err) => toast(err.message, true));
+    });
 
     $("vol").addEventListener("input", (e) => { $("volVal").textContent = e.target.value; });
     $("vol").addEventListener("change", (e) => {

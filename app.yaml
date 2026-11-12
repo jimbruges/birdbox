@@ -23,3 +23,8 @@ bricks:
   - arduino:arduino_cloud
   - arduino:web_ui
   - birdnet
+  # Writes the bird card's encyclopaedia entries. Optional: without it (or with no
+  # model downloaded) cards use the first sentence of Wikipedia instead.
+  - arduino:llm:
+      variables:
+        LLAMA_ARG_CTX_SIZE: "4096"

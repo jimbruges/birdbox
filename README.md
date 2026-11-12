@@ -29,6 +29,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [`docs/project-hub.md`](docs/project-hub.md) | Arduino Project Hub write-up |
 | [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly and servo gear (STL + STEP) |
 | [`tools/`](tools/) | Arduino Cloud API scripts that create the Thing variables and the Free and Pro dashboards |
+| [`python/receipts.py`](python/receipts.py), [`printer.py`](python/printer.py), [`birdinfo.py`](python/birdinfo.py), [`history.py`](python/history.py) | Optional thermal printer: receipt layouts, ESC/POS output, silhouettes and descriptions, and the detection log |
 
 ## What you need
 
@@ -41,12 +42,14 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) (TPX00241) | Powers the UNO Q through its USB-C power passthrough, and the mic through its data port. Needed because the UNO Q's USB-C port doesn't supply power to USB devices. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
+| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line, USB. Needs its **own 5–8.5 V, 3 A supply**. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
+| 1–2 panel-mount push buttons | Optional, for printing a bird card and the daily summary. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
 | USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
-| Arduino Cloud account | The app uses 24 Thing variables. The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
+| Arduino Cloud account | The app uses 31 Thing variables (24 without the printer). The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ## Wiring
 
@@ -58,6 +61,9 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
+| Button 1 (bird card), optional | **D2** and **GND** |
+| Button 2 (daily summary), optional | **D3** and **GND** |
+| Thermal printer, optional | USB to a USB-A port on the hub; power from its own 5–8.5 V, 3 A supply |
 | USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; power supply → hub's **power** port |
 | Microphone | Mic → USB-C adapter → USB-C extension cable → hub's USB-C **data** port |
 
@@ -174,6 +180,13 @@ board (`data/settings.json`) and survive restarts. Every variable below is optio
 | `hold_ms` | Integer Number | `0`–`30000` | `500` | How long the bird stays out. With `hold_for_song` on, this is the minimum. |
 | `servo_command` | Character String | `in` `out` `test` `stop` `song` | `""` | Test commands from a **Messenger** widget. Cleared by the app after each command. |
 | `debug_ui` | Boolean | | `false` | Switches the [debug web UI](#debug-web-ui) on port 7000 on and off. |
+| `printer_enabled` | Boolean | | `true` | Master switch for the [printer](#thermal-printer-and-buttons-optional). With no printer attached, prints are skipped. |
+| `print_each_detection` | Boolean | | `false` | Prints one compact line per detection, building a scroll. |
+| `card_picture` | Boolean | | `true` | PhyloPic silhouette on the bird card. |
+| `card_song` | Boolean | | `true` | Song contour on the bird card. |
+| `card_description` | Boolean | | `true` | Short encyclopaedia entry on the bird card. |
+| `card_llm` | Boolean | | `true` | Write that entry with the local LLM (otherwise the first sentence of Wikipedia). |
+| `summary_hour` | Integer Number | `-1`–`23` | `-1` | Prints the daily summary at this hour. `-1` is off. |
 
 `latitude` and `longitude` of exactly `0.0, 0.0` mean "not set", so the range filter
 stays off until you enter real coordinates.
@@ -235,6 +248,9 @@ Servo card or the dashboard's Messenger widget (`servo_command`):
 | `test` | The full detection action: out, sing the European Robin (if `birdsong_enabled`), hold, in. |
 | `stop` | Stop immediately. |
 | `song` | Play the song only, for the last detected species (the European Robin if nothing has been heard yet). |
+| `card` | Print the bird card for the last species heard (with a printer attached). |
+| `summary` | Print the daily summary. |
+| `line` | Print a scroll line for the last detection. |
 
 1. Set `servo_speed` to how fast you want the bird to move.
 2. Send `out`, then `in`. If the bird stops short of a stop, raise `travel_ms`. If
@@ -284,6 +300,71 @@ With the servo on, the song starts once the bird reaches the outer stop, and (wi
 when the song is sent, through the bird's out move, to the end of the song plus
 0.5 s (`BIRDSONG_MUTE_TAIL_S` in `python/main.py`).
 
+## Thermal printer and buttons (optional)
+
+BirdBox can print onto 58 mm thermal paper, styled like an entry in an old
+encyclopaedia. Everything here is optional: with no printer or buttons connected the
+box works as before, and every receipt can still be previewed on the
+[debug page](#debug-web-ui), at exactly the size it would print.
+
+| Bird card (button 1) | Minimal card | Scroll | Daily summary (button 2) |
+|---|---|---|---|
+| <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and song contour"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
+| 40 mm | 15 mm | 3 mm a line | 36 mm (example data) |
+
+### What it prints
+
+- **Bird card** (button 1, or `card`). For the last species heard: the name, the
+  scientific name, when it was heard, how sure BirdNET was, and how many times it's
+  been heard today and in total. Optionally, each switchable from the dashboard:
+  - a silhouette from [PhyloPic](https://www.phylopic.org/), beside the text so it
+    costs no extra paper, with the artist and licence credited
+  - a two-sentence encyclopaedia entry (see below), credited to Wikipedia
+  - the buzzer song for the species, drawn as a pitch contour on a staff.
+- **Scroll** (`print_each_detection`). One line per detection, about 3 mm each, with
+  no gap between lines, so the paper builds into a list of the day's birds.
+- **Daily summary** (button 2, `summary`, or automatically at `summary_hour`). The
+  day's detections and species, the top five species, and activity over the last 24
+  hours.
+
+Every detection is logged to SQLite (`data/birdbox.db`) for the counts and the
+summary. Silhouettes and descriptions are fetched in the background the first time a
+species is heard, and cached in `data/birdinfo/`, so a button press prints straight
+away.
+
+### Encyclopaedia entries from the local LLM
+
+The bird card's entry is written on the board by the `arduino:llm` brick (Qwen 3.5
+0.8B on a UNO Q):
+
+- The model is given the introduction of the species' Wikipedia article and asked to
+  condense it into two sentences, adding nothing.
+- Each reply is checked against that text. If it uses words the source doesn't
+  contain, it's rejected and the card falls back to the article's first sentence.
+- An entry takes 30–100 s, so each species keeps one cached entry. A print uses it
+  straight away and a new one is written for next time, focusing on something else
+  (plumage, range, food or behaviour), so cards don't repeat word for word.
+- The debug page's Printer card shows the last prompt, reply and grounding score.
+
+The model needs about 480 MB of RAM, which fits alongside BirdNET on a 2 GB UNO Q.
+To run without it, remove `arduino:llm` from `app.yaml` or switch off `card_llm`;
+cards then use the first sentence of Wikipedia.
+
+### Connecting it
+
+- **Printer:** plug its USB into a USB-A port on the hub. It shows up as
+  `/dev/usb/lp0` or `/dev/ttyACM0` and is found automatically; set `printer_device`
+  on the debug page if you have more than one. The printer draws up to 3 A while
+  printing, so power it from its own 5–8.5 V supply, not the board or the hub. The
+  RS-232 port uses ±12 V levels, so connect it through a USB-to-RS-232 adapter, not
+  to the UNO Q's pins.
+- **Buttons:** wire one side of each button to **D2** (bird card) or **D3**
+  (summary), and the other side to **GND**. The sketch uses the internal pull-ups.
+  Unconnected pins never trigger.
+
+The plan and the ideas tested along the way are in
+[docs/plan-v2-printer.md](docs/plan-v2-printer.md).
+
 ## Debug web UI
 
 <img src="docs/images/debug-ui.png" alt="The BirdBox debug page: microphone meter and recording, BirdNET candidates, settings, servo controls, birdsong tester and Cloud variables" width="480">
@@ -302,6 +383,9 @@ shows:
   immediately, are saved on the board, and are sent to Arduino Cloud for variables
   your Thing defines. On start-up, the Cloud's value wins for those.
 - **Servo:** rail state and In / Out / Test / Stop.
+- **Printer:** preview the bird card, daily summary and scroll line exactly as they'd
+  print, with their length in mm, and print them; plus the printer's status and the
+  local LLM's last prompt and reply.
 - **Birdsong:** buzzer status, and buttons to play any predefined song or any species
   by scientific name (works even while `birdsong_enabled` is off).
 - **Cloud variables:** every variable the app registers and its current value.

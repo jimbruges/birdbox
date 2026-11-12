@@ -38,6 +38,14 @@ VARIABLES = {
     "hold_ms": ("INT", "READ_WRITE"),
     "servo_command": ("CHARSTRING", "READ_WRITE"),
     "debug_ui": ("STATUS", "READ_WRITE"),
+    # Printer (v2)
+    "printer_enabled": ("STATUS", "READ_WRITE"),
+    "print_each_detection": ("STATUS", "READ_WRITE"),
+    "card_picture": ("STATUS", "READ_WRITE"),
+    "card_song": ("STATUS", "READ_WRITE"),
+    "card_description": ("STATUS", "READ_WRITE"),
+    "card_llm": ("STATUS", "READ_WRITE"),
+    "summary_hour": ("INT", "READ_WRITE"),
     # Results, board -> Cloud
     "last_species": ("CHARSTRING", "READ_ONLY"),
     "last_scientific_name": ("CHARSTRING", "READ_ONLY"),
@@ -86,7 +94,7 @@ PRO_DASHBOARD = [
     ("Switch", "Birdsong", "birdsong_enabled", 4, 16, 4, 4, {"showLabels": True}),
     ("Switch", "Stay out for song", "hold_for_song", 8, 16, 4, 4, {"showLabels": True}),
     ("Value", "Rail", "servo_state", 12, 16, 4, 4, {}),
-    ("Messenger", "Commands: test, out, in, stop, song", "servo_command", 16, 16, 8, 12, {}),
+    ("Messenger", "Commands: test, out, in, stop, song, card, summary, line", "servo_command", 16, 16, 8, 12, {}),
     # Detection
     ("Value", "Confidence threshold", "min_confidence", 0, 20, 4, 4, {"decimals": 2}),
     ("Value", "Sensitivity", "sensitivity", 4, 20, 4, 4, {"decimals": 2}),
@@ -100,6 +108,14 @@ PRO_DASHBOARD = [
     ("Stepper", "Overrun (ms)", "home_overrun", 12, 29, 4, 5, {"min": 0, "max": 200, "step": 10}),
     ("Slider", "Hold out (ms)", "hold_ms", 16, 29, 8, 5, {"min": 0, "max": 10000}),
     ("Switch", "Debug UI", "debug_ui", 0, 34, 4, 4, {"showLabels": True}),
+    # Printer
+    ("Switch", "Printing", "printer_enabled", 4, 34, 4, 4, {"showLabels": True}),
+    ("Switch", "Print every detection", "print_each_detection", 8, 34, 4, 4, {"showLabels": True}),
+    ("Slider", "Daily summary at (hour, -1 = off)", "summary_hour", 12, 34, 12, 5, {"min": -1, "max": 23}),
+    ("Switch", "Card: picture", "card_picture", 0, 39, 6, 4, {"showLabels": True}),
+    ("Switch", "Card: song", "card_song", 6, 39, 6, 4, {"showLabels": True}),
+    ("Switch", "Card: description", "card_description", 12, 39, 6, 4, {"showLabels": True}),
+    ("Switch", "Description by local LLM", "card_llm", 18, 39, 6, 4, {"showLabels": True}),
 ]
 
 DASHBOARDS = {"free": ("BirdBox Free", FREE_DASHBOARD), "pro": ("BirdBox Pro", PRO_DASHBOARD)}

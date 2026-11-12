@@ -26,6 +26,12 @@ const int MAX_OFFSET_US = 500;  // 500 us off neutral = full speed
 // Set to +1 if the rail travels the wrong way for your mounting.
 const int OUT_SIGN = -1;
 
+// Optional panel buttons, each wired from the pin to GND. Unconnected pins stay
+// high through the pull-up and never trigger.
+const int PIN_BUTTONS[] = {2, 3};  // button 1: bird card, button 2: daily summary
+const int BUTTON_COUNT = 2;
+const unsigned long DEBOUNCE_MS = 30;
+
 // --- Rail ------------------------------------------------------------------
 
 enum RailState { RAIL_UNKNOWN = 0, RAIL_IN = 1, RAIL_OUT = 2, RAIL_MOVING = 3 };
@@ -258,10 +264,40 @@ int buzzer_present() { return buzzerFound ? 1 : 0; }
 
 // --- Lifecycle -----------------------------------------------------------
 
+// --- Buttons ---------------------------------------------------------------
+// Presses are latched here and collected by the Python app's 0.5 s poll, so a
+// quick press is never missed.
+
+bool buttonDown[BUTTON_COUNT];
+unsigned long buttonChangedAt[BUTTON_COUNT];
+int buttonPresses = 0;  // bit n set: button n+1 pressed since the last poll
+
+void updateButtons(unsigned long now) {
+    for (int i = 0; i < BUTTON_COUNT; i++) {
+        bool down = digitalRead(PIN_BUTTONS[i]) == LOW;
+        if (down != buttonDown[i] && now - buttonChangedAt[i] >= DEBOUNCE_MS) {
+            buttonDown[i] = down;
+            buttonChangedAt[i] = now;
+            if (down) {
+                buttonPresses |= 1 << i;
+            }
+        }
+    }
+}
+
+int button_presses() {
+    int pressed = buttonPresses;
+    buttonPresses = 0;
+    return pressed;
+}
+
 void setup() {
     Monitor.begin(115200);
 
     pinMode(LED_BUILTIN, OUTPUT);
+    for (int i = 0; i < BUTTON_COUNT; i++) {
+        pinMode(PIN_BUTTONS[i], INPUT_PULLUP);
+    }
     digitalWrite(LED_BUILTIN, HIGH);  // active-low: HIGH is off
 
     applyDrive(0);
@@ -286,6 +322,7 @@ void setup() {
     Bridge.provide_safe("buzzer_arm", buzzer_arm);
     Bridge.provide_safe("buzzer_stop", buzzer_stop);
     Bridge.provide_safe("buzzer_present", buzzer_present);
+    Bridge.provide_safe("button_presses", button_presses);
 
     Monitor.println(buzzerFound ? "Buzzer found" : "No Modulino Buzzer found");
 
@@ -298,6 +335,7 @@ void loop() {
     unsigned long now = millis();
 
     digitalWrite(LED_BUILTIN, mode == IDLE ? HIGH : LOW);
+    updateButtons(now);
     updateSong(now);
 
     switch (mode) {

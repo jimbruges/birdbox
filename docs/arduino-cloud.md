@@ -13,7 +13,7 @@ The app doesn't need Cloud credentials in its code or configuration. The board's
 
 ## Which plan you need
 
-The app registers **24 variables**. On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
+The app registers **31 variables** (24 without the optional printer). On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
 page, the **Free** plan allows **5 variables per Thing**; **Maker** and above are
 unlimited.
 
@@ -127,8 +127,15 @@ default).
 | `servo_speed` | Integer Number | `40` | 10 – 100 |
 | `home_overrun` | Integer Number | `30` | 0 – 1000 |
 | `hold_ms` | Integer Number | `500` | 0 – 30000 |
-| `servo_command` | Character String | `""` | `in`, `out`, `test`, `stop`, `song` |
+| `servo_command` | Character String | `""` | `in`, `out`, `test`, `stop`, `song`, `card`, `summary`, `line` |
 | `debug_ui` | Boolean | `false` | |
+| `printer_enabled` | Boolean | `true` | |
+| `print_each_detection` | Boolean | `false` | |
+| `card_picture` | Boolean | `true` | |
+| `card_song` | Boolean | `true` | |
+| `card_description` | Boolean | `true` | |
+| `card_llm` | Boolean | `true` | |
+| `summary_hour` | Integer Number | `-1` | −1 (off) – 23 |
 
 Out-of-range values are clamped by the app.
 
@@ -215,6 +222,9 @@ Switching the bird off and on again from the dashboard:
 | Calibration | **Stepper** | `home_overrun` | Min `0`, max `200`, step `10` |
 | Calibration | **Slider** | `hold_ms` | Min `0`, max `10000` |
 | Calibration | **Switch** | `debug_ui` | |
+| Printer | **Switch** | `printer_enabled`, `print_each_detection` | |
+| Printer | **Slider** | `summary_hour` | Min `-1`, max `23` |
+| Printer | **Switch** | `card_picture`, `card_song`, `card_description`, `card_llm` | |
 
 The script also sets a phone layout for each dashboard, keeping the same order with
 small widgets two to a row.
