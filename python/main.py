@@ -121,7 +121,7 @@ def on_bird(detection: Detection) -> None:
                       use_llm=settings["card_description"] and settings["card_llm"])
     if settings["printer_enabled"] and settings["print_each_detection"]:
         line = receipts.scroll_line(common=detection.common_name, when=detection.timestamp,
-                                    confidence=detection.confidence)
+                                    confidence=detection.confidence, size=settings["scroll_size"])
         printer.submit(line, f"scroll line for {detection.common_name}", tear=False)
 
 
@@ -388,6 +388,7 @@ SETTINGS = {
     "card_llm": (bool, True, None, None, None, apply_logged("LLM descriptions"), "Printer", "Description written by the local LLM", "", True),
     "card_credits": (bool, True, None, None, None, apply_logged("Card credits"), "Printer", "Card: picture and text credits", "", True),
     "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
+    "scroll_size": (int, 10, 9, 13, None, apply_logged("Scroll line text size"), "Printer", "Scroll line text size", "px", False),
     "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
     "printer_raster": (str, "esc_k", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
@@ -413,6 +414,7 @@ CHOICES = {
     "printer_baud": {str(b): f"{b} baud" for b in (9600, 19200, 38400, 57600, 115200)},
     "printer_raster": {"esc_k": "ESC K (SPRT / RS PRO panel printers)", "gs_v0": "GS v 0 (ESC/POS raster)",
                        "esc_star": "ESC * (bit image)", "dc2_star": "DC2 * (CSN-A2 / Adafruit)"},
+    "scroll_size": {str(n): f"{n} px ({(n + 3) / 8:.1f} mm a line)" for n in range(9, 14)},
     "printer_busy_pin": {"-1": "Not used", **{str(d): f"D{d}" for d in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)}},
     **{f"button{n}_action": {"card": "Print the bird card", "summary": "Print the daily summary",
                              "line": "Print a scroll line", "test": "Test the bird (out, song, in)",
@@ -521,7 +523,8 @@ def build_line():
     bird = _last_bird()
     if bird is None:
         return receipts.scroll_line(common="No birds heard yet", when=datetime.now(), confidence=0)
-    return receipts.scroll_line(common=bird["common"], when=bird["when"], confidence=bird["confidence"])
+    return receipts.scroll_line(common=bird["common"], when=bird["when"], confidence=bird["confidence"],
+                                size=settings["scroll_size"])
 
 
 RECEIPTS = ("card", "summary", "line")

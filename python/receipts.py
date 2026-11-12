@@ -279,25 +279,28 @@ def bird_card(*, common: str, scientific: str, when: datetime, confidence: float
     return c.done()
 
 
-def scroll_line(*, common: str, when: datetime, confidence: float) -> Image.Image:
-    """One very compact line per detection, with dot leaders, for a running scroll."""
+SCROLL_FONT = 10   # px; 9 is the smallest that still reads, 10 is safer on a thermal head
+
+
+def scroll_line(*, common: str, when: datetime, confidence: float, size: int = SCROLL_FONT) -> Image.Image:
+    """One very compact line per detection, with date, time and dot leaders, for a scroll.
+
+    All bold: at this size the regular weight's thin strokes don't survive the head.
+    """
     c = Canvas(40)
-    c.y = 1
-    fnt = font(17)
-    left = f"{when:%H:%M}  "
+    c.y = 0
+    fnt = font(size, True)
+    left = f"{when:%d %b %H:%M}  "
     right = f" {round(confidence * 100)}%"
-    name = truncate(c, headword(common).title(), font(17, True),
-                    WIDTH - c.text_width(left + right, fnt) - 12)
-    c.draw.text((0, c.y), left, font=fnt, fill=0)
-    x = c.text_width(left, fnt)
-    c.draw.text((x, c.y), name, font=font(17, True), fill=0)
-    x += c.text_width(name, font(17, True)) + 4
+    name = truncate(c, headword(common).title(), fnt, WIDTH - c.text_width(left + right, fnt) - 10)
+    c.draw.text((0, c.y), left + name, font=fnt, fill=0)
+    x = c.text_width(left + name, fnt) + 4
     right_x = WIDTH - c.text_width(right, fnt)
-    dot_y = c.y + fnt.getbbox("A")[3] - 1
-    for dx in range(x + (4 - x % 4), right_x - 4, 5):
-        c.draw.point((dx, dot_y), fill=0)
+    dot_y = c.y + fnt.getbbox("A")[3] - 2
+    for dx in range(x + (6 - x % 6), right_x - 4, 6):   # 2x2 leader dots, which print reliably
+        c.draw.rectangle((dx, dot_y, dx + 1, dot_y + 1), fill=0)
     c.draw.text((right_x, c.y), right, font=fnt, fill=0)
-    c.y += fnt.getbbox("Ag")[3] + 2
+    c.y += fnt.getbbox("Ag")[3] + 1
     return c.image.crop((0, 0, WIDTH, c.y))
 
 

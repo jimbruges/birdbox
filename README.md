@@ -314,7 +314,7 @@ box works as before, and every receipt can still be previewed on the
 | Bird card (button 1) | Minimal card | Scroll | Daily summary (button 2) |
 |---|---|---|---|
 | <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and Vocalisation Chart"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
-| 38 mm | 15 mm | 3 mm a line | 36 mm (example data) |
+| 38 mm | 15 mm | 1.6 mm a line | 36 mm (example data) |
 
 ### What it prints
 
@@ -330,8 +330,10 @@ box works as before, and every receipt can still be previewed on the
   - a one-line credit for the picture and text, in small type (`card_credits`).
     Many PhyloPic images are CC BY, which requires credit, so leave it on if you
     share prints.
-- **Scroll** (`print_each_detection`). One line per detection, about 3 mm each, with
-  no gap between lines, so the paper builds into a list of the day's birds.
+- **Scroll** (`print_each_detection`). One line per detection, with the date, time,
+  species and confidence in 10 px bold (about 1.6 mm a line), and no gap between
+  lines, so the paper builds into a list of the day's birds. **Scroll line text size**
+  on the debug page goes down to 9 px.
 - **Daily summary** (button 2, `summary`, or automatically at `summary_hour`). The
   day's detections and species, the top five species, and activity over the last 24
   hours.
