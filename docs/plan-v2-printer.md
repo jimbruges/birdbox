@@ -12,7 +12,8 @@ can still be previewed on the debug page.
 | [RS PRO High Speed Thermal Line Panel Printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | 58 mm paper, 384 dots per line (8 dots/mm), USB 2.0 or RS-232. Powered from **3.5–8.5 V, up to 3 A**, so it needs its own supply: it can't run from the UNO Q or the hub's USB ports. |
 | 1–2 momentary panel-mount push buttons | Normally open. One side to a digital pin, the other to GND. The sketch uses the internal pull-ups. |
 
-- **Printer data:** the MCU's hardware serial port, `Serial1` on D0 (RX) and D1 (TX),
+- **Printer data:** a hardware UART on the MCU: `Serial3` on the SCL (TX) / SDA (RX) pins
+  (originally `Serial1` on D0/D1, which is the Zephyr console and printed the boot banner),
   plus a shared GND. The app streams each receipt to the sketch over the Router
   Bridge in base64 chunks; the sketch keeps a 4 KB buffer and feeds the UART from
   `loop()` without blocking, so the servo and buzzer keep their timing. The UNO Q's
@@ -145,3 +146,12 @@ On paper, full-width one-dot rules and thin strokes disappeared: the head limits
 many dots it heats in one row. Rules are now 2-dot dashes at half density, and bars
 and the Vocalisation Chart use a 2×2-block grey. Descriptions are fitted to five lines
 and always end on a complete sentence.
+
+`Serial1` on D0/D1 is the MCU's Zephyr console, so the loader printed its boot banner
+on the printer at every MCU reset. The printer moved to `Serial3` on the SCL/SDA pins
+(free, since the Modulino uses the separate Qwiic bus), which stays silent until the
+app opens it. D0/D1 is still selectable.
+
+A **Demo scroll** on the debug page pops out a random bird, plays its song and prints
+its scroll line every N seconds, X times, for filming. Demo birds aren't logged or
+sent to the Cloud.

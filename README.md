@@ -42,7 +42,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) (TPX00241) | Powers the UNO Q through its USB-C power passthrough, and the mic through its data port. Needed because the UNO Q's USB-C port doesn't supply power to USB devices. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
-| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line. Connects to the MCU's serial pins (D0/D1). Needs its **own 5–8.5 V, 3 A supply**, and a MAX3232 level-shifter module if its serial port is RS-232. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
+| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line. Connects to the MCU's serial pins (SCL/SDA). Needs its **own 5–8.5 V, 3 A supply**, and a MAX3232 level-shifter module if its serial port is RS-232. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
 | 1–2 panel-mount push buttons | Optional, for printing a bird card and the daily summary. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
@@ -63,8 +63,9 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | Modulino Buzzer | **Qwiic** connector |
 | Button 1, optional (prints the bird card by default) | **D2** and **GND** |
 | Button 2, optional (prints the daily summary by default) | **D3** and **GND** |
-| Thermal printer RX, optional | **D1** (MCU TX), through a MAX3232 if the printer is RS-232 |
-| Thermal printer TX, optional | **D0** (MCU RX), for status replies; optional |
+| Thermal printer RX, optional | **SCL** (D21, MCU TX), through a MAX3232 if the printer is RS-232 |
+| Thermal printer TX, optional | **SDA** (D20, MCU RX), for status replies; optional |
+| Thermal printer CTS (busy), optional | A free pin such as **D4** |
 | Thermal printer GND | **GND** (shared ground for the serial link) |
 | Thermal printer power | Its own 5–8.5 V, 3 A supply |
 | USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; power supply → hub's **power** port |
@@ -365,12 +366,14 @@ cards then use the first sentence of Wikipedia.
 
 **Printer, on the MCU's serial pins.** The RS PRO 178-5731 is an SPRT SP-RMD9
 panel printer; its manual covers the commands and settings. The sketch streams each
-receipt out of `Serial1`, the UNO Q's hardware serial port:
+receipt out of `Serial3`, a hardware UART on the **SCL/SDA** header pins. (D0/D1,
+`Serial1`, also works, but it's the MCU's Zephyr console, so a line of boot text
+prints every time the MCU resets. Pick it with **Printer UART** if you need to.)
 
 | SP-RMD9 serial pin (5-pin / 10-pin socket) | UNO Q |
 |---|---|
-| RXD, data in (3 / 3) | **D1** (TX) |
-| TXD, data out (2 / 2), optional | **D0** (RX). Lets the app check the printer is there. |
+| RXD, data in (3 / 3) | **SCL** (D21, TX) |
+| TXD, data out (2 / 2), optional | **SDA** (D20, RX). Lets the app check the printer is there. |
 | CTS, busy (4 / 8), optional | A free pin such as **D4**, set as *Busy (CTS) pin* |
 | GND (5 / 5) | **GND** |
 | Power | Its own 5–8.5 V, 3 A supply, never the board's 5V pin |
@@ -410,9 +413,8 @@ receipt out of `Serial1`, the UNO Q's hardware serial port:
   Reverse direction**). **Flip the whole receipt** then sets which way round the
   whole receipt comes out. It's on for the prototype's mounting; switch it off if
   your receipts come out upside down.
-- **Power-up text:** USART1 on D0/D1 is also the MCU's boot console, so a short line
-  of boot text may print when the board restarts. Each receipt starts with a printer
-  reset, so it doesn't affect later prints.
+- **Nothing at power-up:** the SCL/SDA UART stays silent until the app starts it,
+  so the printer prints nothing when the board boots or the app restarts.
 - **USB printers** work too: set **Connected to** to *USB on the hub*, and the app
   finds `/dev/usb/lp0` or `/dev/ttyACM0`.
 
@@ -428,7 +430,8 @@ pins and what each button does are settings on the debug page's **Buttons** grou
 | 1 | **D2** | Print the bird card | bird card, daily summary, scroll line, test the bird (out, song, in), play the last bird's song, nothing |
 | 2 | **D3** | Print the daily summary | same |
 
-Pins D2–D8 and D10–D13 are free. D0/D1 belong to the printer and D9 to the servo.
+Pins D2–D8 and D10–D13 are free (avoid the one used for the printer's busy line).
+D9 belongs to the servo, SCL/SDA to the printer, and D0/D1 to the MCU console.
 Set a button's pin to *Not used* to turn it off.
 
 The plan and the ideas tested along the way are in
@@ -455,6 +458,10 @@ shows:
 - **Printer:** preview the bird card, daily summary and scroll line exactly as they'd
   print, with their length in mm, and print them; plus the printer's status and the
   local LLM's last prompt and reply.
+- **Demo scroll:** every N seconds, X times, a random bird pops out, plays its song
+  and gets a scroll line, for filming a timelapse. **Random timing** varies each gap
+  between 0.3× and 1.7× the interval. Demo birds aren't logged or sent to
+  Arduino Cloud.
 - **Birdsong:** buzzer status, and buttons to play any predefined song or any species
   by scientific name (works even while `birdsong_enabled` is off).
 - **Cloud variables:** every variable the app registers and its current value.

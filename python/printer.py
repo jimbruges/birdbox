@@ -172,6 +172,7 @@ class Printer:
     def __init__(self, bridge_call) -> None:
         self.port = "serial"            # "serial" (MCU D0/D1) or "usb"
         self.baud = 9600
+        self.uart = 3                   # 3 = Serial3 on SCL/SDA (D21 TX, D20 RX); 1 = Serial1 on D0/D1
         self.device_setting = "auto"    # USB only
         self.raster_mode = "esc_k"
         self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
@@ -189,7 +190,8 @@ class Printer:
     def device(self) -> str | None:
         """Where jobs go, or None when there's nowhere to send them."""
         if self.port == "serial":
-            return f"MCU serial D0/D1 at {self.baud} baud"
+            pins = "D0/D1" if self.uart == 1 else "SCL/SDA"
+            return f"MCU serial {pins} at {self.baud} baud"
         return find_device(self.device_setting)
 
     @property
@@ -199,7 +201,7 @@ class Printer:
     def begin(self) -> None:
         """(Re)start the MCU's UART at the configured baud rate."""
         if self.port == "serial":
-            self._bridge_call("printer_begin", self.baud)
+            self._bridge_call("printer_begin", self.baud, self.uart)
 
     def check(self) -> int | None:
         """Ask a serial printer for its status; -1 means it didn't answer."""
@@ -217,7 +219,7 @@ class Printer:
         if self.status is None:
             return "not checked"
         if self.status == -1:
-            return "no reply (printer off, or its TX not wired to D0)"
+            return "no reply (printer off, or its TX not wired to the MCU's RX pin)"
         if self.status == -2:
             return "printing"
         return "ready" if self.status & 0x08 == 0 else "offline"

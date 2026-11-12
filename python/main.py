@@ -306,6 +306,12 @@ def apply_printer_port(value: str) -> None:
     logger.info(f"Printer connection: {printer.device or 'no USB printer found'}")
 
 
+def apply_printer_uart(value: int) -> None:
+    printer.uart = value
+    printer.begin()
+    logger.info(f"Printer on {printer.device}")
+
+
 def apply_printer_baud(value: int) -> None:
     printer.baud = value
     printer.begin()
@@ -400,6 +406,7 @@ SETTINGS = {
     "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
     "scroll_size": (int, 10, 9, 13, None, apply_logged("Scroll line text size"), "Printer", "Scroll line text size", "px", False),
     "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
+    "printer_uart": (int, 3, 1, 3, None, apply_printer_uart, "Printer", "Printer UART", "", False),
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
     "printer_raster": (str, "esc_k", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
     "printer_busy_pin": (int, -1, -1, 21, None, apply_printer_busy_pin, "Printer", "Busy (CTS) pin", "", False),
@@ -417,13 +424,15 @@ SETTINGS = {
     "debug_ui": (bool, False, None, None, None, apply_debug_ui, "Debug", "Debug UI", "", True),
 }
 SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song",
-                   "button1_pin", "button2_pin", "printer_baud", "printer_busy_pin", "printer_speed")
+                   "button1_pin", "button2_pin", "printer_uart", "printer_baud", "printer_busy_pin",
+                   "printer_speed")
 
 BUTTON_ACTIONS = ("card", "summary", "line", "test", "song", "none")
 # Settings shown as a drop-down: the allowed values, with labels for the debug page.
 CHOICES = {
     "printer_port": {"serial": "MCU serial pins D0/D1", "usb": "USB on the hub"},
     "printer_baud": {str(b): f"{b} baud" for b in (9600, 19200, 38400, 57600, 115200)},
+    "printer_uart": {"3": "SCL/SDA pins: SCL (D21) TX, SDA (D20) RX", "1": "D0/D1 (also the boot console)"},
     "printer_raster": {"esc_k": "ESC K (SPRT / RS PRO panel printers)", "gs_v0": "GS v 0 (ESC/POS raster)",
                        "esc_star": "ESC * (bit image)", "dc2_star": "DC2 * (CSN-A2 / Adafruit)"},
     "scroll_size": {str(n): f"{n} px ({(n + 3) / 8:.1f} mm a line)" for n in range(9, 14)},
@@ -733,6 +742,7 @@ def api_status() -> dict:
             "device": printer.device,
             "status": printer.describe_status(),
             "busy_line": _busy_line(),
+            "demo": {"running": _demo["thread"] is not None, "done": _demo["done"], "count": _demo["count"]},
             "printed": printer.printed,
             "last_error": printer.last_error,
             "llm": birdinfo.last_exchange(),
@@ -906,6 +916,65 @@ def api_printer_test(body: dict) -> dict:
     return {"ok": True, "test": test}
 
 
+# --- Demo scroll ---------------------------------------------------------------
+# For filming a timelapse of the scroll: every N seconds, a random bird from the
+# song library pops out, sings and gets a scroll line. Demo birds are never
+# logged or sent to the Cloud, so the real counts stay clean.
+
+_demo = {"thread": None, "stop": threading.Event(), "done": 0, "count": 0, "interval": 0}
+
+
+def _demo_run(interval: float, count: int, random_timing: bool = False) -> None:
+    import random
+
+    rng = random.Random()
+    library = list(songs.CURATED.items())
+    for k in range(count):
+        if _demo["stop"].is_set():
+            break
+        scientific, (common, _) = rng.choice(library)
+        confidence = round(rng.uniform(0.62, 0.98), 2)
+        now = datetime.now()
+        if servo_enabled:
+            Bridge.notify("servo_present")
+        if birdsong_enabled:
+            play_song(scientific, wait_for_bird=servo_enabled)
+        line = receipts.scroll_line(common=common, when=now, confidence=confidence, size=settings["scroll_size"])
+        printer.submit(line, f"demo line {k + 1}/{count} ({common})", tear=False)
+        _demo["done"] = k + 1
+        logger.info(f"Demo {k + 1}/{count}: {common}")
+        # Random timing: each gap anywhere from 0.3x to 1.7x the interval (at least
+        # 3 s), so it averages out to the interval but looks natural on film.
+        wait = rng.uniform(max(3.0, 0.3 * interval), 1.7 * interval) if random_timing else interval
+        if k + 1 < count and _demo["stop"].wait(wait):
+            break
+    _demo["thread"] = None
+    logger.info("Demo scroll finished")
+
+
+def api_demo(body: dict) -> dict:
+    """Start (interval, count) or stop the demo scroll."""
+    _require_debug()
+    if body.get("stop"):
+        _demo["stop"].set()
+        return {"ok": True, "running": False}
+    if _demo["thread"]:
+        raise HTTPException(status_code=409, detail="A demo is already running")
+    try:
+        interval = max(3.0, min(600.0, float(body.get("interval", 10))))
+        count = max(1, min(500, int(body.get("count", 20))))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="interval and count must be numbers")
+    random_timing = bool(body.get("random", False))
+    _demo.update(stop=threading.Event(), done=0, count=count, interval=interval)
+    _demo["thread"] = threading.Thread(target=_demo_run, args=(interval, count, random_timing),
+                                       name="demo", daemon=True)
+    _demo["thread"].start()
+    logger.info(f"Demo scroll: {count} birds, {'about ' if random_timing else ''}one every {interval:g} s")
+    return {"ok": True, "running": True, "interval": interval, "count": count, "random": random_timing}
+
+
+web_ui.expose_api("POST", "/api/demo", api_demo)
 web_ui.expose_api("POST", "/api/printer_test", api_printer_test)
 web_ui.expose_api("GET", "/api/receipt", api_receipt)
 web_ui.expose_api("POST", "/api/print", api_print)

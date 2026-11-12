@@ -330,6 +330,18 @@
     </div>
     <div class="muted">If ESC * prints the picture in strips with gaps, run the spacing test and set
       <em>ESC * band spacing</em> to the labelled value whose bars are unbroken.</div>
+    <h2 style="margin-top:14px">Demo scroll</h2>
+    <div class="muted">A random bird pops out, sings and gets a scroll line every few seconds, for
+      filming a timelapse. Demo birds aren't logged or sent to Arduino Cloud.</div>
+    <div class="row">
+      <label for="demoEvery">Every</label>
+      <input id="demoEvery" type="number" min="3" max="600" step="1" value="10"><span>s</span>
+      <label for="demoCount">Birds</label>
+      <input id="demoCount" type="number" min="1" max="500" step="1" value="20">
+      <label><input id="demoRandom" type="checkbox"> Random timing</label>
+      <button type="button" class="primary" id="btnDemo">Start</button>
+      <span class="muted" id="demoState"></span>
+    </div>
     <details class="llm">
       <summary>Local LLM description: <span id="llmStatus">-</span></summary>
       <div class="muted" id="llmSpecies"></div>
@@ -523,6 +535,10 @@
     $("printerDevice").className = "pill " + (pr.device ? "ok" : "");
     $("printerCount").textContent = (pr.printed ? `${pr.printed} printed since start` : "") +
       (pr.last_error ? ` · last error: ${pr.last_error}` : "");
+    const demo = pr.demo || {};
+    $("btnDemo").textContent = demo.running ? "Stop" : "Start";
+    $("demoState").textContent = demo.running ? `${demo.done} of ${demo.count} printed`
+      : (demo.count ? `last run: ${demo.done} of ${demo.count}` : "");
     const llm = pr.llm || {};
     $("llmStatus").textContent = llm.status || "idle";
     $("llmSpecies").textContent = llm.species ? `${llm.species}${llm.grounded != null ? ` · grounded ${llm.grounded}` : ""}` : "";
@@ -803,6 +819,16 @@
     $("btnTest").addEventListener("click", () => send("test"));
     $("btnSong").addEventListener("click", () => playSong($("songPick").value));
     $("btnSongName").addEventListener("click", () => playSong($("songName").value.trim()));
+    $("btnDemo").addEventListener("click", () => {
+      const running = $("btnDemo").textContent === "Stop";
+      const body = running ? { stop: true }
+        : { interval: parseFloat($("demoEvery").value), count: parseInt($("demoCount").value, 10),
+            random: $("demoRandom").checked };
+      api("/api/demo", body)
+        .then((r) => toast(r.running
+          ? `Demo: ${r.count} birds, ${r.random ? "about " : ""}one every ${r.interval} s` : "Demo stopped"))
+        .catch((err) => toast(err.message, true));
+    });
     document.querySelectorAll("button[data-test]").forEach((b) =>
       b.addEventListener("click", () => api("/api/printer_test", { test: b.dataset.test })
         .then(() => toast(`Sent the ${b.textContent.toLowerCase()}`))

@@ -33,10 +33,16 @@ const int BUTTON_COUNT = 2;
 int buttonPins[BUTTON_COUNT] = {2, 3};  // -1 = not used
 const unsigned long DEBOUNCE_MS = 30;
 
-// Optional thermal printer on the hardware serial pins: D1 (TX) to the printer's
-// RX, D0 (RX) from its TX for status replies. 3.3 V logic: an RS-232 printer
-// needs a MAX3232-style level shifter in between.
-#define PRINTER Serial1
+// Optional thermal printer on a hardware UART (3.3 V logic: an RS-232 printer
+// needs a MAX3232-style level shifter in between):
+// - Serial3 on the SCL/SDA header pins: D21 (SCL, TX) to the printer's RX, D20
+//   (SDA, RX) from its TX. Recommended: nothing else uses this UART.
+// - Serial1 on D1 (TX) / D0 (RX). This is also the Zephyr console, so the boot
+//   banner is printed on every MCU reset.
+// The app picks one with printer_begin(baud, port).
+arduino::ZephyrSerial* printerPort = &Serial3;
+#define PRINTER (*printerPort)
+bool printerStarted = false;
 
 // Optional busy line: the printer's CTS output (high = busy, its 3 KB buffer is
 // full). When wired to a pin, sending pauses while it's high. -1 = not used.
@@ -350,9 +356,13 @@ int b64value(char c) {
     return -1;
 }
 
-void printer_begin(int baud) {
-    PRINTER.end();
+void printer_begin(int baud, int port) {
+    if (printerStarted) {
+        PRINTER.end();
+    }
+    printerPort = port == 1 ? &Serial1 : &Serial3;
     PRINTER.begin(baud);
+    printerStarted = true;
     printHead = printCount = 0;
 }
 
@@ -406,6 +416,9 @@ void printer_set_busy_pin(int pin, int busyWhenHigh) {
 // if it didn't answer (not connected, or its TX isn't wired to D0), or -2 while
 // a print is still going out.
 int printer_status() {
+    if (!printerStarted) {
+        return -1;
+    }
     if (printCount > 0) {
         return -2;
     }
@@ -432,6 +445,9 @@ int printer_busy() {
 }
 
 void updatePrinter() {
+    if (!printerStarted) {
+        return;
+    }
     if (printerBusyPin >= 0 && digitalRead(printerBusyPin) == printerBusyLevel) {
         return;  // printer buffer full: wait for it to catch up
     }
@@ -460,7 +476,7 @@ void setup() {
     for (int i = 0; i < BUTTON_COUNT; i++) {
         pinMode(buttonPins[i], INPUT_PULLUP);
     }
-    PRINTER.begin(9600);
+    // The app starts the printer UART (printer_begin) once it has read the settings.
     digitalWrite(LED_BUILTIN, HIGH);  // active-low: HIGH is off
 
     applyDrive(0);
