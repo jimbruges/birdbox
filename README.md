@@ -11,11 +11,25 @@ Buzzer** plays an approximation of that species' song.
 No audio leaves the board. Inference runs locally on the UNO Q's Linux side in
 about 225 ms per 3-second window, roughly 13× faster than real time.
 
+The project has two stages, and the second is optional:
+
+- **Stage 1, the listening bird box** ([v1.0](https://github.com/jimbruges/birdbox/releases/tag/v1.0)):
+  BirdNET on the board, Arduino Cloud dashboards, the servo bird and the buzzer
+  songs.
+- **Stage 2, printed field notes:** a thermal panel printer and two buttons in the
+  base of the box. They print an encyclopaedia-style card for the last bird heard,
+  a running scroll of every detection, and a daily register. The card's
+  description is condensed from Wikipedia by a local LLM. Without the printer and
+  buttons, stage 2 changes nothing.
+
 ```
 mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Cloud (results + settings)
-     48 kHz mono        BirdNET V2.4   │
-     3 s windows        on LiteRT      └──► Router Bridge ──► sketch ──┬──► FS90R servo on D9
-                                                                       └──► Modulino Buzzer (Qwiic)
+     48 kHz mono        BirdNET V2.4   ├──► SQLite log ──► receipts (card, scroll, register)
+     3 s windows        on LiteRT      │                     │ + PhyloPic, Wikipedia, local LLM
+                                       └──► Router Bridge ──► sketch ──┬──► FS90R servo on D9
+                                                                       ├──► Modulino Buzzer (Qwiic)
+                                                                       ├──► thermal printer (SCL/SDA UART)
+                                                                       └──◄ buttons (D2, D3)
 ```
 
 | Piece | What it does |
@@ -29,9 +43,12 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [`docs/project-hub.md`](docs/project-hub.md) | Arduino Project Hub write-up |
 | [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly and servo gear (STL + STEP) |
 | [`tools/`](tools/) | Arduino Cloud API scripts that create the Thing variables and the Free and Pro dashboards |
-| [`python/receipts.py`](python/receipts.py), [`printer.py`](python/printer.py), [`birdinfo.py`](python/birdinfo.py), [`history.py`](python/history.py) | Optional thermal printer: receipt layouts, ESC/POS output, silhouettes and descriptions, and the detection log |
+| [`python/receipts.py`](python/receipts.py), [`printer.py`](python/printer.py), [`birdinfo.py`](python/birdinfo.py), [`history.py`](python/history.py) | Stage 2: receipt layouts, printer output, silhouettes and descriptions, and the detection log |
+| [`docs/plan-v2-printer.md`](docs/plan-v2-printer.md) | Stage 2 plan, and what was tested on the way |
 
 ## What you need
+
+### Stage 1
 
 | Part | Notes |
 |---|---|
@@ -42,18 +59,26 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) (TPX00241) | Powers the UNO Q through its USB-C power passthrough, and the mic through its data port. Needed because the UNO Q's USB-C port doesn't supply power to USB devices. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
-| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line. Connects to the MCU's serial pins (SCL/SDA). Needs its **own 5–8.5 V, 3 A supply**, and a MAX3232 level-shifter module if its serial port is RS-232. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
-| 1–2 panel-mount push buttons | Optional, for printing a bird card and the daily summary. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
 | USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
-| Arduino Cloud account | The app uses 32 Thing variables (24 without the printer). The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
+| Arduino Cloud account | Stage 1 uses 24 Thing variables, stage 2 another 8. The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
+
+### Stage 2 (optional)
+
+| Part | Notes |
+|---|---|
+| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | A rebadged SPRT SP-RMD9: 58 mm paper, 384 dots per line, 3 KB buffer. Connects to the MCU's serial pins (SCL/SDA). Needs its **own 5–8.5 V, 3 A supply**, and a MAX3232 level-shifter module if its serial port is RS-232. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
+| 58 mm thermal paper roll | Up to 40 mm diameter. |
+| 5–8.5 V, 3 A supply for the printer | Towards 8.5 V prints darker. |
+| 1–2 panel-mount momentary push buttons | Normally open, for printing a bird card and the daily summary. |
+| Jumper wires | Printer RX, TX, CTS and GND; each button to its pin and GND. |
 
 ## Wiring
 
-![BirdBox wiring: servo on D9, 5V and GND; Modulino Buzzer on Qwiic; USB-C hub powering the UNO Q and the outdoor USB mic](docs/images/wiring-diagram.png)
+![BirdBox wiring: servo on D9, 5V and GND; Modulino Buzzer on Qwiic; USB-C hub powering the UNO Q and the outdoor USB mic; printer on SCL/SDA with CTS on D4; buttons on D2 and D3](docs/images/wiring-diagram.png)
 
 | From | To |
 |---|---|
@@ -154,7 +179,7 @@ and recommended widget, is in **[docs/arduino-cloud.md](docs/arduino-cloud.md)**
 1. **Connect the board:** App Lab → **Settings → Arduino Cloud → Connect device**.
    Wait for **Connected**.
 2. **Open the board's Thing** at [app.arduino.cc/things](https://app.arduino.cc/things).
-3. **Add the 24 variables** listed below, or let `tools/setup_cloud.py` create them through the API ([quick setup](docs/arduino-cloud.md#quick-setup-with-the-api)). Names must match exactly — check the
+3. **Add the variables** listed below (24 for stage 1, 32 with the printer), or let `tools/setup_cloud.py` create them through the API ([quick setup](docs/arduino-cloud.md#quick-setup-with-the-api)). Names must match exactly — check the
    **Declaration** field shows the same name.
 4. **Build the dashboard** from the layout in the guide.
 5. **Start the app.** Any variable with no Cloud value yet is seeded from the
@@ -182,7 +207,7 @@ board (`data/settings.json`) and survive restarts. Every variable below is optio
 | `servo_speed` | Integer Number | `10`–`100` | `40` | Percent of full speed. A move takes `travel_ms × 100 / servo_speed + home_overrun`. |
 | `home_overrun` | Integer Number | `0`–`1000` | `30` | Extra drive time into each stop, so the rail always seats. |
 | `hold_ms` | Integer Number | `0`–`30000` | `500` | How long the bird stays out. With `hold_for_song` on, this is the minimum. |
-| `servo_command` | Character String | `in` `out` `test` `stop` `song` | `""` | Test commands from a **Messenger** widget. Cleared by the app after each command. |
+| `servo_command` | Character String | `in` `out` `test` `stop` `song` `card` `summary` `line` | `""` | Test and print commands from a **Messenger** widget. Cleared by the app after each command. |
 | `debug_ui` | Boolean | | `false` | Switches the [debug web UI](#debug-web-ui) on port 7000 on and off. |
 | `printer_enabled` | Boolean | | `true` | Master switch for the [printer](#thermal-printer-and-buttons-optional). With no printer attached, prints are skipped. |
 | `print_each_detection` | Boolean | | `false` | Prints one compact line per detection, building a scroll. |
@@ -307,7 +332,7 @@ when the song is sent, through the bird's out move, to the end of the song plus
 
 ## Thermal printer and buttons (optional)
 
-BirdBox can print onto 58 mm thermal paper, styled like an entry in an old
+This is stage 2. BirdBox can print onto 58 mm thermal paper, styled like an entry in an old
 encyclopaedia. Everything here is optional: with no printer or buttons connected the
 box works as before, and every receipt can still be previewed on the
 [debug page](#debug-web-ui), at exactly the size it would print.
@@ -363,6 +388,10 @@ To run without it, remove `arduino:llm` from `app.yaml` or switch off `card_llm`
 cards then use the first sentence of Wikipedia.
 
 ### Connecting it
+
+**Mounting.** The SP-RMD9's panel cutout is 103 × 57 mm, and it needs 55 mm of depth
+behind the panel. On the prototype the printer and both buttons sit in the base of
+the box.
 
 **Printer, on the MCU's serial pins.** The RS PRO 178-5731 is an SPRT SP-RMD9
 panel printer; its manual covers the commands and settings. The sketch streams each
@@ -420,6 +449,25 @@ prints every time the MCU resets. Pick it with **Printer UART** if you need to.)
 
 The sketch buffers 4 KB and feeds the UART from `loop()`, so printing never stalls
 the servo or the buzzer.
+
+**Printer settings on the debug page** (saved on the board, not in Arduino Cloud):
+
+| Setting | Default | What it does |
+|---|---|---|
+| Connected to | MCU serial pins | Or *USB on the hub* for a USB printer. |
+| Printer UART | SCL/SDA | Or D0/D1, which is also the boot console. |
+| Serial speed | 9600 baud | Must match the printer. |
+| Image command | ESC K | The SP-RMD9's bit-image command. GS v 0, ESC * and DC2 * for other printers. |
+| Printer set to Reverse direction | on | Pre-rotates each image line for the printer's Reverse mode. |
+| Flip the whole receipt | on | Which way round the whole receipt comes out. |
+| Print speed | 10 mm/s | Paces image data; 0 relies on the busy line alone. |
+| Busy (CTS) pin | not used | The pin wired to the printer's CTS, and whether busy is high. |
+| Feed after card and summary | 22 mm | So the receipt clears the box. |
+| Scroll line text size | 10 px | 9–13 px. |
+| ESC * band spacing | 24 | Only for printers that use ESC *. |
+
+The Printer card also has **Printer tests**: a plain-text wiring check, and a test
+pattern in each image format, to find what an unfamiliar printer understands.
 
 **Buttons.** Wire each button between a digital pin and **GND**; the sketch uses
 the internal pull-ups, and a pin with nothing connected never triggers. Both the
