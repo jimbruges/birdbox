@@ -312,6 +312,11 @@ def apply_printer_baud(value: int) -> None:
     logger.info(f"Printer serial speed set to {value} baud")
 
 
+def apply_printer_raster(value: str) -> None:
+    printer.raster_mode = value
+    logger.info(f"Printer image command: {value}")
+
+
 def apply_printer_device(value: str) -> None:
     printer.device_setting = value
     if printer.port == "usb":
@@ -358,6 +363,7 @@ SETTINGS = {
     "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
     "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
+    "printer_raster": (str, "gs_v0", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
     "button1_pin": (int, 2, -1, 21, None, apply_button_pin(1), "Buttons", "Button 1 pin (D, −1 = none)", "", False),
     "button1_action": (str, "card", None, None, None, apply_logged("Button 1 action"), "Buttons", "Button 1 does", "", False),
@@ -373,6 +379,8 @@ BUTTON_ACTIONS = ("card", "summary", "line", "test", "song", "none")
 CHOICES = {
     "printer_port": {"serial": "MCU serial pins D0/D1", "usb": "USB on the hub"},
     "printer_baud": {str(b): f"{b} baud" for b in (9600, 19200, 38400, 57600, 115200)},
+    "printer_raster": {"gs_v0": "GS v 0 (ESC/POS raster)", "esc_star": "ESC * (bit image)",
+                       "dc2_star": "DC2 * (CSN-A2 / Adafruit)"},
     **{f"button{n}_action": {"card": "Print the bird card", "summary": "Print the daily summary",
                              "line": "Print a scroll line", "test": "Test the bird (out, song, in)",
                              "song": "Play the last bird's song", "none": "Nothing"} for n in (1, 2)},
@@ -781,6 +789,41 @@ def api_print(body: dict) -> dict:
     return {"ok": True, "kind": kind}
 
 
+PRINTER_TESTS = ("text", "gs_v0", "esc_star", "dc2_star")
+
+
+def _test_pattern(mode: str):
+    """A small pattern that's easy to judge: border, diagonals, text and a black bar."""
+    from PIL import Image, ImageDraw
+
+    img = Image.new("1", (receipts.WIDTH, 72), 1)
+    d = ImageDraw.Draw(img)
+    d.rectangle((0, 0, receipts.WIDTH - 1, 71), outline=0, width=2)
+    d.line((0, 0, receipts.WIDTH - 1, 71), fill=0, width=2)
+    d.line((0, 71, receipts.WIDTH - 1, 0), fill=0, width=2)
+    d.rectangle((8, 8, 120, 26), fill=0)
+    d.text((8, 32), f"Image test: {CHOICES['printer_raster'][mode]}", font=receipts.font(16), fill=0)
+    return img
+
+
+def api_printer_test(body: dict) -> dict:
+    """Print a wiring test (plain text) or the test pattern with one image command."""
+    _require_debug()
+    test = str(body.get("test", ""))
+    if test not in PRINTER_TESTS:
+        raise HTTPException(status_code=400, detail=f"Unknown test {test!r}")
+    if test == "text":
+        ok = printer.submit_text(
+            f"BirdBox printer test\n{printer.device}\n0123456789 ABCDEFGHIJKLM abcdefghijklm\n"
+            "If this reads correctly, the wiring and baud rate are right.\n", "text test")
+    else:
+        ok = printer.submit(_test_pattern(test), f"image test ({test})", mode=test)
+    if not ok:
+        raise HTTPException(status_code=409, detail="No printer found")
+    return {"ok": True, "test": test}
+
+
+web_ui.expose_api("POST", "/api/printer_test", api_printer_test)
 web_ui.expose_api("GET", "/api/receipt", api_receipt)
 web_ui.expose_api("POST", "/api/print", api_print)
 web_ui.expose_api("GET", "/api/sample", api_sample)

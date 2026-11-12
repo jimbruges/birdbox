@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
 """ESC/POS output to a thermal printer, run from a background queue.
 
-Receipts arrive as 1-bit images and are sent as raster graphics (GS v 0), so
-what prints is exactly what the debug page previews.
+Receipts arrive as 1-bit images and are sent as bit-image graphics, so what
+prints is exactly what the debug page previews. Printers differ in which image
+command they understand, so there are three encodings (RASTER_MODES); the debug
+page's printer tests show which one a printer takes.
 
 Two ways to reach the printer:
 - "serial" (default): the MCU's hardware serial pins D0/D1. The bytes go to the
@@ -52,18 +54,60 @@ def find_device(setting: str = "auto") -> str | None:
     return None
 
 
-def raster(image: Image.Image) -> bytes:
-    """GS v 0 commands for a 1-bit image no wider than the printer (384 dots)."""
+def _black_rows(image: Image.Image) -> tuple[bytes, int, int]:
+    """Row-major packed bits with 1 = black: (data, width in bytes, height)."""
     img = image.convert("1")
-    width_bytes = (img.width + 7) // 8
-    # PIL packs mode "1" with 1 = white; the printer wants 1 = black.
-    data = bytes(b ^ 0xFF for b in img.tobytes())
+    # PIL packs mode "1" with 1 = white; printers want 1 = black.
+    return bytes(b ^ 0xFF for b in img.tobytes()), (img.width + 7) // 8, img.height
+
+
+def raster_gs_v0(image: Image.Image) -> bytes:
+    """GS v 0: the modern ESC/POS raster command."""
+    data, width_bytes, height = _black_rows(image)
     out = bytearray()
-    for top in range(0, img.height, BAND_ROWS):
-        rows = min(BAND_ROWS, img.height - top)
+    for top in range(0, height, BAND_ROWS):
+        rows = min(BAND_ROWS, height - top)
         band = data[top * width_bytes:(top + rows) * width_bytes]
         out += b"\x1dv0\x00" + bytes((width_bytes & 0xFF, width_bytes >> 8, rows & 0xFF, rows >> 8)) + band
     return bytes(out)
+
+
+def raster_dc2_star(image: Image.Image) -> bytes:
+    """DC2 *: the raster command of the CSN-A2 / Adafruit family of panel printers."""
+    data, width_bytes, height = _black_rows(image)
+    out = bytearray()
+    for top in range(0, height, 255):
+        rows = min(255, height - top)
+        out += b"\x12*" + bytes((rows, width_bytes)) + data[top * width_bytes:(top + rows) * width_bytes]
+    return bytes(out)
+
+
+def raster_esc_star(image: Image.Image) -> bytes:
+    """ESC * 33: the older column-based bit image, printed in 24-dot bands."""
+    img = image.convert("1")
+    width, height = img.size
+    px = img.load()
+    out = bytearray(b"\x1b3\x18")                       # line spacing = 24 dots, so bands touch
+    for top in range(0, height, 24):
+        out += b"\x1b*\x21" + bytes((width & 0xFF, width >> 8))
+        for x in range(width):
+            for k in range(3):
+                byte = 0
+                for bit in range(8):
+                    y = top + k * 8 + bit
+                    if y < height and px[x, y] == 0:      # 0 = black in mode "1"
+                        byte |= 0x80 >> bit
+                out.append(byte)
+        out += b"\n"
+    out += b"\x1b2"                                     # back to the default line spacing
+    return bytes(out)
+
+
+RASTER_MODES = {"gs_v0": raster_gs_v0, "esc_star": raster_esc_star, "dc2_star": raster_dc2_star}
+
+
+def raster(image: Image.Image, mode: str = "gs_v0") -> bytes:
+    return RASTER_MODES.get(mode, raster_gs_v0)(image)
 
 
 def feed(dots: int) -> bytes:
@@ -83,6 +127,7 @@ class Printer:
         self.port = "serial"            # "serial" (MCU D0/D1) or "usb"
         self.baud = 9600
         self.device_setting = "auto"    # USB only
+        self.raster_mode = "gs_v0"
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
@@ -127,13 +172,21 @@ class Printer:
             return "printing"
         return "ready" if self.status & 0x08 == 0 else "offline"
 
-    def submit(self, image: Image.Image, label: str, tear: bool = True) -> bool:
+    def submit(self, image: Image.Image, label: str, tear: bool = True, mode: str | None = None) -> bool:
         """Queue an image. Returns False (and logs) when there's no printer to send to."""
+        return self._queue((image, label, tear, mode))
+
+    def submit_text(self, text: str, label: str) -> bool:
+        """Queue plain ASCII text, for checking the wiring and baud rate."""
+        return self._queue((text.encode("ascii", "replace"), label, True, None))
+
+    def _queue(self, job: tuple) -> bool:
+        label = job[1]
         if self.device is None:
             logger.info(f"No printer found, skipping {label}")
             return False
         try:
-            self._jobs.put_nowait((image, label, tear))
+            self._jobs.put_nowait(job)
         except queue.Full:
             logger.warning(f"Print queue full, dropping {label}")
             return False
@@ -141,13 +194,15 @@ class Printer:
 
     def _worker(self) -> None:
         while True:
-            image, label, tear = self._jobs.get()
-            payload = ESC_INIT + raster(image) + (feed(TEAR_FEED_DOTS) if tear else b"")
+            content, label, tear, mode = self._jobs.get()
+            body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode)
+            payload = ESC_INIT + body + (feed(TEAR_FEED_DOTS) if tear else b"")
             try:
                 self._write(payload)
                 self.printed += 1
                 self.last_error = None
-                logger.info(f"Printed {label} ({image.height / 8:.0f} mm)")
+                size = f"{content.height / 8:.0f} mm" if not isinstance(content, bytes) else f"{len(content)} bytes"
+                logger.info(f"Printed {label} ({size}, {len(payload)} bytes sent)")
             except OSError as err:
                 self.last_error = str(err)
                 logger.warning(f"Could not print {label}: {err}")

@@ -316,6 +316,16 @@
       <span class="muted" id="receiptInfo">Pick a receipt to preview.</span>
     </div>
     <div class="receipt"><img id="receiptImg" alt="Receipt preview" hidden></div>
+    <h2 style="margin-top:14px">Printer tests</h2>
+    <div class="muted">Start with the text test: if it prints garbage, check the wiring and serial speed.
+      If text is fine but receipts print as random characters, try each image test and set
+      <em>Image command</em> under Settings to the one that prints a box with a cross.</div>
+    <div class="row">
+      <button type="button" data-test="text">Text test</button>
+      <button type="button" data-test="gs_v0">Image test: GS v 0</button>
+      <button type="button" data-test="esc_star">Image test: ESC *</button>
+      <button type="button" data-test="dc2_star">Image test: DC2 *</button>
+    </div>
     <details class="llm">
       <summary>Local LLM description: <span id="llmStatus">-</span></summary>
       <div class="muted" id="llmSpecies"></div>
@@ -788,6 +798,10 @@
     $("btnTest").addEventListener("click", () => send("test"));
     $("btnSong").addEventListener("click", () => playSong($("songPick").value));
     $("btnSongName").addEventListener("click", () => playSong($("songName").value.trim()));
+    document.querySelectorAll("button[data-test]").forEach((b) =>
+      b.addEventListener("click", () => api("/api/printer_test", { test: b.dataset.test })
+        .then(() => toast(`Sent the ${b.textContent.toLowerCase()}`))
+        .catch((err) => toast(err.message, true))));
     document.querySelectorAll("button[data-preview]").forEach((b) =>
       b.addEventListener("click", () => preview(b.dataset.preview)));
     $("btnPrint").addEventListener("click", () => {
