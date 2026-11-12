@@ -88,11 +88,11 @@ class Canvas:
 
     def rule(self, double: bool = False) -> None:
         self.gap(3)
-        self.draw.line((0, self.y, WIDTH - 1, self.y), fill=0)
+        dashed_rule(self.draw, self.y)
         if double:
-            self.draw.line((0, self.y + 2, WIDTH - 1, self.y + 2), fill=0)
-            self.y += 2
-        self.gap(4)
+            dashed_rule(self.draw, self.y + 4)
+            self.y += 4
+        self.gap(5)
 
     def italic(self, xy: tuple[int, int], text: str, fnt) -> int:
         """Draw slanted text (there's no italic serif font on the board). Returns its width."""
@@ -128,6 +128,15 @@ def truncate(c: Canvas, text: str, fnt, width: int) -> str:
 
 
 # --- Pieces -----------------------------------------------------------------
+# Thermal heads can only heat so many dots in one row at once, so a full-width,
+# one-dot line prints faint or not at all. Lines here are two dots thick and
+# dashed, which keeps every row well under the printer's limit.
+
+
+def dashed_rule(draw: ImageDraw.ImageDraw, y: int, x0: int = 0, x1: int = WIDTH - 1,
+                dash: int = 4, gap: int = 4, thickness: int = 2) -> None:
+    for x in range(x0, x1 + 1, dash + gap):
+        draw.rectangle((x, y, min(x + dash - 1, x1), y + thickness - 1), fill=0)
 
 
 def silhouette_image(path: Path, size: int) -> Image.Image:
@@ -141,15 +150,19 @@ def silhouette_image(path: Path, size: int) -> Image.Image:
     return tile.point(lambda v: 0 if v < 140 else 255, "1")
 
 
-def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, height: int = 44) -> Image.Image:
-    """The buzzer song as a pitch contour over a dotted five-line staff (log pitch, 1-8 kHz)."""
+def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, height: int = 48) -> Image.Image:
+    """The buzzer song as a pitch contour over a dotted five-line staff (log pitch, 1-8 kHz).
+
+    The staff is 2x2 dots every 8 dots, and the contour 6 dots thick, so both print
+    clearly on a thermal head.
+    """
     img = Image.new("1", (width, height), 1)
     d = ImageDraw.Draw(img)
-    top, bottom = 4, height - 4
+    top, bottom = 5, height - 6
     for k in range(5):
         y = round(top + k * (bottom - top) / 4)
-        for x in range(0, width, 4):
-            d.point((x, y), fill=0)
+        for x in range(0, width, 8):
+            d.rectangle((x, y, x + 1, y + 1), fill=0)
     total = sum(ms for _, _, ms in segments) or 1
     lo, hi = math.log(1000), math.log(8000)
 
@@ -163,13 +176,13 @@ def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, heigh
         x2 = x + ms * scale
         if start <= 0 and end <= 0:            # a rest breaks the line
             if len(path) > 1:
-                d.line(path, fill=0, width=4, joint="curve")
+                d.line(path, fill=0, width=6, joint="curve")
             path = []
         else:
             path += [(x, y_of(start)), (x2, y_of(end))]
         x = x2
     if len(path) > 1:
-        d.line(path, fill=0, width=4, joint="curve")
+        d.line(path, fill=0, width=6, joint="curve")
     return img
 
 
@@ -299,7 +312,7 @@ def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetim
                 h = 2
             if h:
                 c.draw.rectangle((x, base - h, x + bar_w - 1, base), fill=0)
-        c.draw.line((0, base + 1, WIDTH - 1, base + 1), fill=0)
+        dashed_rule(c.draw, base + 1)
         c.y = base + 3
         for k, (hour, _) in enumerate(hourly):
             if hour % 6 == 0:
