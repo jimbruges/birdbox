@@ -108,24 +108,35 @@ def raster_esc_star(image: Image.Image, spacing: int = 24) -> bytes:
     return bytes(out)
 
 
-def raster_esc_k(image: Image.Image) -> bytes:
+def raster_esc_k(image: Image.Image, reverse: bool = True) -> bytes:
     """ESC K: 8-dot-tall bit-image lines, the image command of SPRT panel printers.
 
     The RS PRO 178-5731 is an SPRT SP-RMD9. Its manual: ESC K nL nH, then one byte
     per column (top dot = most significant bit), width up to 384; and ESC 1 0 sets
     the line spacing to 0 dots so consecutive 8-dot lines touch.
+
+    In the printer's Reverse direction (its factory setting, so receipts read the
+    right way up as they leave a panel) it turns every printed line by 180°. With
+    `reverse`, each 8-dot line is pre-rotated so it comes out the right way up.
     """
     img = image.convert("1")
     width, height = img.size
-    px = img.load()
+    if height % 8:
+        # Pad to whole 8-dot lines so a rotated line keeps its content in place.
+        padded = Image.new("1", (width, height + 8 - height % 8), 1)
+        padded.paste(img, (0, 0))
+        img, height = padded, padded.height
     out = bytearray(b"\x1b1\x00")                       # ESC 1 0: no gap between image lines
     for top in range(0, height, 8):
+        band = img.crop((0, top, width, top + 8))
+        if reverse:
+            band = band.rotate(180)
+        px = band.load()
         out += b"\x1bK" + bytes((width & 0xFF, width >> 8))
         for x in range(width):
             byte = 0
             for bit in range(8):
-                y = top + bit
-                if y < height and px[x, y] == 0:          # 0 = black in mode "1"
+                if px[x, bit] == 0:                       # 0 = black in mode "1"
                     byte |= 0x80 >> bit
             out.append(byte)
         out += b"\n"
@@ -137,9 +148,11 @@ RASTER_MODES = {"esc_k": raster_esc_k, "gs_v0": raster_gs_v0, "esc_star": raster
                 "dc2_star": raster_dc2_star}
 
 
-def raster(image: Image.Image, mode: str = "gs_v0", spacing: int = 24) -> bytes:
+def raster(image: Image.Image, mode: str = "gs_v0", spacing: int = 24, reverse: bool = True) -> bytes:
     if mode == "esc_star":
         return raster_esc_star(image, spacing)
+    if mode == "esc_k":
+        return raster_esc_k(image, reverse)
     return RASTER_MODES.get(mode, raster_gs_v0)(image)
 
 
@@ -162,6 +175,7 @@ class Printer:
         self.device_setting = "auto"    # USB only
         self.raster_mode = "esc_k"
         self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
+        self.reverse = True             # ESC K only: printer set to Reverse direction (SPRT default)
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
@@ -234,7 +248,7 @@ class Printer:
         while True:
             content, label, tear, mode = self._jobs.get()
             body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode,
-                                                                     self.line_spacing)
+                                                                     self.line_spacing, self.reverse)
             payload = ESC_INIT + body + (feed(TEAR_FEED_DOTS) if tear else b"")
             try:
                 self._write(payload)

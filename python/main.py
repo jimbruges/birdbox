@@ -317,6 +317,11 @@ def apply_printer_raster(value: str) -> None:
     logger.info(f"Printer image command: {value}")
 
 
+def apply_printer_reverse(value: bool) -> None:
+    printer.reverse = value
+    logger.info(f"Printer direction: {'Reverse (lines pre-rotated)' if value else 'Normal'}")
+
+
 def apply_printer_busy_pin(value: int) -> None:
     Bridge.call("printer_set_busy_pin", value)
     logger.info(f"Printer busy line on {'D' + str(value) if value >= 0 else 'no pin'}")
@@ -375,6 +380,7 @@ SETTINGS = {
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
     "printer_raster": (str, "esc_k", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
     "printer_busy_pin": (int, -1, -1, 21, None, apply_printer_busy_pin, "Printer", "Busy (CTS) pin", "", False),
+    "printer_reverse": (bool, True, None, None, None, apply_printer_reverse, "Printer", "Printer set to Reverse direction (ESC K)", "", False),
     "printer_spacing": (int, 24, 1, 120, 1, apply_printer_spacing, "Printer", "ESC * band spacing (see spacing test)", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
     "button1_pin": (int, 2, -1, 21, None, apply_button_pin(1), "Buttons", "Button 1 pin (D, −1 = none)", "", False),
