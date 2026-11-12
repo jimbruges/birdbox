@@ -402,6 +402,9 @@ receipt out of `Serial1`, the UNO Q's hardware serial port:
   dark areas. If prints are faint or
   patchy, use a supply towards the top of the 5–8.5 V range, slow **Print speed**, or
   raise *Printing Density* in the printer's setup menu.
+- **Feed:** after a bird card or daily summary the printer feeds **Feed after card
+  and summary** (22 mm by default) so the receipt clears the box and can be torn off.
+  Scroll lines get no feed, so the scroll stays continuous.
 - **Print direction:** the printer's factory setting is *Reverse*, which turns each
   printed line 180°; the app pre-rotates image lines to match (**Printer set to
   Reverse direction**). **Flip the whole receipt** then sets which way round the

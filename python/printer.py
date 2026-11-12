@@ -37,7 +37,7 @@ logger = Logger("Printer")
 CANDIDATES = ("/dev/usb/lp*", "/dev/ttyACM*", "/dev/ttyUSB*")
 SERIAL_BAUD = termios.B9600     # only matters for a real RS-232 link
 BAND_ROWS = 128                 # rows per raster command; keeps each write small
-TEAR_FEED_DOTS = 96             # 12 mm: enough to tear a card off at the bar
+TEAR_FEED_MM = 22               # default feed after a card or summary, so it clears the box
 
 ESC_INIT = b"\x1b@"
 CHUNK = 144                     # raw bytes per Bridge call: 192 base64 chars, inside the RPC buffer
@@ -176,6 +176,7 @@ class Printer:
         self.raster_mode = "esc_k"
         self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
         self.reverse = True             # ESC K only: printer set to Reverse direction (SPRT default)
+        self.feed_mm = TEAR_FEED_MM     # feed after cards and summaries (scroll lines get none)
         self.flip = True                # turn the whole receipt 180° (it comes out the other way round)
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
@@ -252,7 +253,7 @@ class Printer:
                 content = content.rotate(180)
             body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode,
                                                                      self.line_spacing, self.reverse)
-            payload = ESC_INIT + body + (feed(TEAR_FEED_DOTS) if tear else b"")
+            payload = ESC_INIT + body + (feed(self.feed_mm * 8) if tear else b"")
             try:
                 self._write(payload)
                 self.printed += 1
