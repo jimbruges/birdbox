@@ -41,6 +41,14 @@ const unsigned long DEBOUNCE_MS = 30;
 // Optional busy line: the printer's CTS output (high = busy, its 3 KB buffer is
 // full). When wired to a pin, sending pauses while it's high. -1 = not used.
 int printerBusyPin = -1;
+int printerBusyLevel = HIGH;  // the level that means busy (MARK = high on a TTL port)
+
+// Without the busy line, sending is paced so the printer never falls behind:
+// at most printRate bytes per second (0 = as fast as the baud rate allows).
+long printRate = 0;
+float printAllowance = 0;
+unsigned long printPacedAt = 0;
+const float PRINT_BURST = 256;  // bytes that may go out at once
 
 // --- Rail ------------------------------------------------------------------
 
@@ -377,11 +385,18 @@ int printer_free() {
     return printFree();
 }
 
-void printer_set_busy_pin(int pin) {
+void printer_set_rate(int bytesPerSecond) {
+    printRate = bytesPerSecond > 0 ? bytesPerSecond : 0;
+    printAllowance = 0;
+    printPacedAt = millis();
+}
+
+void printer_set_busy_pin(int pin, int busyWhenHigh) {
     if (pin == 0 || pin == 1 || pin == PIN_SERVO || pin > 21) {
         pin = -1;
     }
     printerBusyPin = pin;
+    printerBusyLevel = busyWhenHigh ? HIGH : LOW;
     if (pin >= 0) {
         pinMode(pin, INPUT);
     }
@@ -408,12 +423,27 @@ int printer_status() {
     return -1;
 }
 
+// The busy line's level right now: 1 busy, 0 ready, -1 no pin set.
+int printer_busy() {
+    if (printerBusyPin < 0) {
+        return -1;
+    }
+    return digitalRead(printerBusyPin) == printerBusyLevel ? 1 : 0;
+}
+
 void updatePrinter() {
-    if (printerBusyPin >= 0 && digitalRead(printerBusyPin) == HIGH) {
+    if (printerBusyPin >= 0 && digitalRead(printerBusyPin) == printerBusyLevel) {
         return;  // printer buffer full: wait for it to catch up
     }
     // Small runs keep the reaction to the busy line quick.
     int room = min(PRINTER.availableForWrite(), printerBusyPin >= 0 ? 32 : 4096);
+    if (printRate > 0) {
+        unsigned long now = millis();
+        printAllowance = min(PRINT_BURST, printAllowance + (now - printPacedAt) * printRate / 1000.0f);
+        printPacedAt = now;
+        room = min(room, (int)printAllowance);
+        printAllowance -= max(0, min(room, printCount));
+    }
     while (room > 0 && printCount > 0) {
         int run = min(min(room, printCount), PRINT_BUFFER_SIZE - printHead);
         PRINTER.write(printBuffer + printHead, run);
@@ -462,6 +492,8 @@ void setup() {
     Bridge.provide_safe("printer_free", printer_free);
     Bridge.provide_safe("printer_status", printer_status);
     Bridge.provide_safe("printer_set_busy_pin", printer_set_busy_pin);
+    Bridge.provide_safe("printer_set_rate", printer_set_rate);
+    Bridge.provide_safe("printer_busy", printer_busy);
 
     Monitor.println(buzzerFound ? "Buzzer found" : "No Modulino Buzzer found");
 

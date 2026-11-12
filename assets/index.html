@@ -518,7 +518,8 @@
     if (!pr) return;
     $("printerOn").textContent = pr.enabled ? "printing on" : "printing off";
     $("printerOn").className = "pill " + (pr.enabled ? "ok" : "warn");
-    $("printerDevice").textContent = (pr.device ? pr.device : "no printer found") + (pr.status ? ` · ${pr.status}` : "");
+    $("printerDevice").textContent = (pr.device ? pr.device : "no printer found") + (pr.status ? ` · ${pr.status}` : "") +
+      (pr.busy_line && pr.busy_line !== "not used" ? ` · busy line ${pr.busy_line}` : "");
     $("printerDevice").className = "pill " + (pr.device ? "ok" : "");
     $("printerCount").textContent = (pr.printed ? `${pr.printed} printed since start` : "") +
       (pr.last_error ? ` · last error: ${pr.last_error}` : "");

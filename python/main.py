@@ -322,9 +322,21 @@ def apply_printer_reverse(value: bool) -> None:
     logger.info(f"Printer direction: {'Reverse (lines pre-rotated)' if value else 'Normal'}")
 
 
-def apply_printer_busy_pin(value: int) -> None:
-    Bridge.call("printer_set_busy_pin", value)
-    logger.info(f"Printer busy line on {'D' + str(value) if value >= 0 else 'no pin'}")
+# A 384-dot image is about 390 bytes per mm of paper (48 bytes a dot row, 8 rows a mm,
+# plus the ESC K header on each 8-dot line).
+BYTES_PER_MM = 390
+
+
+def apply_printer_speed(value: int) -> None:
+    Bridge.call("printer_set_rate", value * BYTES_PER_MM)
+    logger.info(f"Printer paced to {value} mm/s" if value else "Printer pacing off (full baud rate)")
+
+
+def apply_printer_busy_pin(_value: object = None) -> None:
+    pin, high = settings["printer_busy_pin"], settings["printer_busy_high"]
+    Bridge.call("printer_set_busy_pin", pin, 1 if high else 0)
+    logger.info(f"Printer busy line on D{pin}, busy when {'high' if high else 'low'}" if pin >= 0
+                else "Printer busy line not used")
 
 
 def apply_printer_spacing(value: int) -> None:
@@ -380,6 +392,8 @@ SETTINGS = {
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
     "printer_raster": (str, "esc_k", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
     "printer_busy_pin": (int, -1, -1, 21, None, apply_printer_busy_pin, "Printer", "Busy (CTS) pin", "", False),
+    "printer_busy_high": (bool, True, None, None, None, apply_printer_busy_pin, "Printer", "Busy line is high when busy", "", False),
+    "printer_speed": (int, 10, 0, 30, 1, apply_printer_speed, "Printer", "Print speed (0 = no limit)", "mm/s", False),
     "printer_reverse": (bool, True, None, None, None, apply_printer_reverse, "Printer", "Printer set to Reverse direction (ESC K)", "", False),
     "printer_spacing": (int, 24, 1, 120, 1, apply_printer_spacing, "Printer", "ESC * band spacing (see spacing test)", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
@@ -390,7 +404,7 @@ SETTINGS = {
     "debug_ui": (bool, False, None, None, None, apply_debug_ui, "Debug", "Debug UI", "", True),
 }
 SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song",
-                   "button1_pin", "button2_pin", "printer_baud", "printer_busy_pin")
+                   "button1_pin", "button2_pin", "printer_baud", "printer_busy_pin", "printer_speed")
 
 BUTTON_ACTIONS = ("card", "summary", "line", "test", "song", "none")
 # Settings shown as a drop-down: the allowed values, with labels for the debug page.
@@ -659,6 +673,16 @@ def _jsonable(value: object) -> object:
     return value if value is None or isinstance(value, (bool, int, float, str)) else str(value)
 
 
+def _busy_line() -> str:
+    if settings["printer_port"] != "serial" or settings["printer_busy_pin"] < 0:
+        return "not used"
+    try:
+        level = int(_bridge("printer_busy"))
+    except Exception:  # noqa: BLE001 - sketch not up yet
+        return "unknown"
+    return {1: "busy", 0: "ready"}.get(level, "not used")
+
+
 def api_status() -> dict:
     _require_debug()
     stats = birds.stats
@@ -693,6 +717,7 @@ def api_status() -> dict:
             "enabled": settings["printer_enabled"],
             "device": printer.device,
             "status": printer.describe_status(),
+            "busy_line": _busy_line(),
             "printed": printer.printed,
             "last_error": printer.last_error,
             "llm": birdinfo.last_exchange(),

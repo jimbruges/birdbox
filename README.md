@@ -384,10 +384,18 @@ receipt out of `Serial1`, the UNO Q's hardware serial port:
   change values with **LF**, and save with **LF** then **SEL** (see the manual). Set
   **Serial speed** on the debug page to match. At 9600 a 37 mm card takes about 15 s
   to send; at 115200 about a second.
-- **Busy line:** the printer has a 3 KB buffer and prints at 30 mm/s. At high baud
-  rates an image can arrive faster than it prints, so on long receipts wire its CTS
-  to a free pin and set **Busy (CTS) pin**; the sketch then pauses while the printer
-  is busy.
+- **Busy line and pacing:** the printer has a 3 KB buffer and prints at up to
+  30 mm/s, slower on dark images. If data arrives faster than it prints, the buffer
+  overflows and the rest of the receipt prints as garbage. Two guards, which work
+  together:
+  - wire its CTS to a free pin (D4 on the prototype) and set **Busy (CTS) pin**; the
+    sketch pauses while it's busy, and the Printer card shows the line's live state
+  - **Print speed** (default 10 mm/s) limits how fast image data is sent. Slower
+    printing also comes out darker and more even. Set it to 0 to rely on the busy
+    line alone.
+- **Print quality:** the head needs current for dark areas. If prints are faint or
+  patchy, use a supply towards the top of the 5–8.5 V range, slow **Print speed**, or
+  raise *Printing Density* in the printer's setup menu.
 - **Print direction:** the factory setting is *Reverse*, so receipts read the right
   way up as they come out of the panel.
 - **Power-up text:** USART1 on D0/D1 is also the MCU's boot console, so a short line
