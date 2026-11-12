@@ -317,6 +317,11 @@ def apply_printer_raster(value: str) -> None:
     logger.info(f"Printer image command: {value}")
 
 
+def apply_printer_flip(value: bool) -> None:
+    printer.flip = value
+    logger.info(f"Receipts {'turned 180°' if value else 'printed as previewed'}")
+
+
 def apply_printer_reverse(value: bool) -> None:
     printer.reverse = value
     logger.info(f"Printer direction: {'Reverse (lines pre-rotated)' if value else 'Normal'}")
@@ -395,6 +400,7 @@ SETTINGS = {
     "printer_busy_pin": (int, -1, -1, 21, None, apply_printer_busy_pin, "Printer", "Busy (CTS) pin", "", False),
     "printer_busy_high": (bool, True, None, None, None, apply_printer_busy_pin, "Printer", "Busy line is high when busy", "", False),
     "printer_speed": (int, 10, 0, 30, 1, apply_printer_speed, "Printer", "Print speed (0 = no limit)", "mm/s", False),
+    "printer_flip": (bool, True, None, None, None, apply_printer_flip, "Printer", "Flip the whole receipt (comes out the other way round)", "", False),
     "printer_reverse": (bool, True, None, None, None, apply_printer_reverse, "Printer", "Printer set to Reverse direction (ESC K)", "", False),
     "printer_spacing": (int, 24, 1, 120, 1, apply_printer_spacing, "Printer", "ESC * band spacing (see spacing test)", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),

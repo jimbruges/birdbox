@@ -176,6 +176,7 @@ class Printer:
         self.raster_mode = "esc_k"
         self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
         self.reverse = True             # ESC K only: printer set to Reverse direction (SPRT default)
+        self.flip = True                # turn the whole receipt 180° (it comes out the other way round)
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
@@ -247,6 +248,8 @@ class Printer:
     def _worker(self) -> None:
         while True:
             content, label, tear, mode = self._jobs.get()
+            if self.flip and not isinstance(content, bytes):
+                content = content.rotate(180)
             body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode,
                                                                      self.line_spacing, self.reverse)
             payload = ESC_INIT + body + (feed(TEAR_FEED_DOTS) if tear else b"")

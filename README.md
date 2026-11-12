@@ -402,8 +402,11 @@ receipt out of `Serial1`, the UNO Q's hardware serial port:
   dark areas. If prints are faint or
   patchy, use a supply towards the top of the 5–8.5 V range, slow **Print speed**, or
   raise *Printing Density* in the printer's setup menu.
-- **Print direction:** the factory setting is *Reverse*, so receipts read the right
-  way up as they come out of the panel.
+- **Print direction:** the printer's factory setting is *Reverse*, which turns each
+  printed line 180°; the app pre-rotates image lines to match (**Printer set to
+  Reverse direction**). **Flip the whole receipt** then sets which way round the
+  whole receipt comes out. It's on for the prototype's mounting; switch it off if
+  your receipts come out upside down.
 - **Power-up text:** USART1 on D0/D1 is also the MCU's boot console, so a short line
   of boot text may print when the board restarts. Each receipt starts with a printer
   reset, so it doesn't affect later prints.
