@@ -313,7 +313,7 @@ box works as before, and every receipt can still be previewed on the
 
 | Bird card (button 1) | Minimal card | Scroll | Daily summary (button 2) |
 |---|---|---|---|
-| <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and song contour"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
+| <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and Vocalisation Chart"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
 | 38 mm | 15 mm | 3 mm a line | 36 mm (example data) |
 
 ### What it prints
