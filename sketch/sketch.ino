@@ -38,6 +38,10 @@ const unsigned long DEBOUNCE_MS = 30;
 // needs a MAX3232-style level shifter in between.
 #define PRINTER Serial1
 
+// Optional busy line: the printer's CTS output (high = busy, its 3 KB buffer is
+// full). When wired to a pin, sending pauses while it's high. -1 = not used.
+int printerBusyPin = -1;
+
 // --- Rail ------------------------------------------------------------------
 
 enum RailState { RAIL_UNKNOWN = 0, RAIL_IN = 1, RAIL_OUT = 2, RAIL_MOVING = 3 };
@@ -373,6 +377,16 @@ int printer_free() {
     return printFree();
 }
 
+void printer_set_busy_pin(int pin) {
+    if (pin == 0 || pin == 1 || pin == PIN_SERVO || pin > 21) {
+        pin = -1;
+    }
+    printerBusyPin = pin;
+    if (pin >= 0) {
+        pinMode(pin, INPUT);
+    }
+}
+
 // ESC/POS "transmit status" (DLE EOT 1). Returns the printer's status byte, -1
 // if it didn't answer (not connected, or its TX isn't wired to D0), or -2 while
 // a print is still going out.
@@ -395,7 +409,11 @@ int printer_status() {
 }
 
 void updatePrinter() {
-    int room = PRINTER.availableForWrite();
+    if (printerBusyPin >= 0 && digitalRead(printerBusyPin) == HIGH) {
+        return;  // printer buffer full: wait for it to catch up
+    }
+    // Small runs keep the reaction to the busy line quick.
+    int room = min(PRINTER.availableForWrite(), printerBusyPin >= 0 ? 32 : 4096);
     while (room > 0 && printCount > 0) {
         int run = min(min(room, printCount), PRINT_BUFFER_SIZE - printHead);
         PRINTER.write(printBuffer + printHead, run);
@@ -443,6 +461,7 @@ void setup() {
     Bridge.provide_safe("printer_write", printer_write);
     Bridge.provide_safe("printer_free", printer_free);
     Bridge.provide_safe("printer_status", printer_status);
+    Bridge.provide_safe("printer_set_busy_pin", printer_set_busy_pin);
 
     Monitor.println(buzzerFound ? "Buzzer found" : "No Modulino Buzzer found");
 

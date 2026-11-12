@@ -360,24 +360,36 @@ cards then use the first sentence of Wikipedia.
 
 ### Connecting it
 
-**Printer, on the MCU's serial pins.** The sketch streams each receipt out of
-`Serial1`, the UNO Q's hardware serial port:
+**Printer, on the MCU's serial pins.** The RS PRO 178-5731 is an SPRT SP-RMD9
+panel printer; its manual covers the commands and settings. The sketch streams each
+receipt out of `Serial1`, the UNO Q's hardware serial port:
 
-| Printer | UNO Q |
+| SP-RMD9 serial pin (5-pin / 10-pin socket) | UNO Q |
 |---|---|
-| RX (data in) | **D1** (TX) |
-| TX (data out), optional | **D0** (RX). Lets the app check the printer is there. |
-| GND | **GND** |
+| RXD, data in (3 / 3) | **D1** (TX) |
+| TXD, data out (2 / 2), optional | **D0** (RX). Lets the app check the printer is there. |
+| CTS, busy (4 / 8), optional | A free pin such as **D4**, set as *Busy (CTS) pin* |
+| GND (5 / 5) | **GND** |
 | Power | Its own 5–8.5 V, 3 A supply, never the board's 5V pin |
 
-- **Logic levels:** the UNO Q's pins are 3.3 V TTL. RS lists this printer's serial
-  port as RS-232 (±12 V). If yours is RS-232, put a MAX3232 level-shifter module
-  between them; connecting RS-232 directly can damage the pins. A TTL-serial printer
-  connects directly.
-- **Speed:** set **Serial speed** on the debug page to match the printer (9600 by
-  default). At 9600 baud a 40 mm card takes about 15 s to send, and the printer
-  feeds slowly while it arrives. At 115200, if the printer supports it, it takes
-  about a second.
+- **Logic levels:** the UNO Q's pins are 3.3 V. The SP-RMD9's serial port comes as
+  RS-232 (EIA, ±12 V) or TTL depending on the model. A TTL port connects directly; an
+  RS-232 one needs a MAX3232 level-shifter module, or it can damage the pins. The
+  printer's self-test page says which interface it has.
+- **Image command:** the SP-RMD9 prints images with `ESC K` (8-dot-tall bit-image
+  lines) and doesn't understand ESC/POS `GS v 0`, so **Image command** defaults to
+  `ESC K`. For other printers, try the image tests on the debug page.
+- **Speed:** the printer ships at 9600 baud, 8N1. To change it, hold **LF** while
+  powering on, release after three flashes, step through the settings with **SEL**,
+  change values with **LF**, and save with **LF** then **SEL** (see the manual). Set
+  **Serial speed** on the debug page to match. At 9600 a 37 mm card takes about 15 s
+  to send; at 115200 about a second.
+- **Busy line:** the printer has a 3 KB buffer and prints at 30 mm/s. At high baud
+  rates an image can arrive faster than it prints, so on long receipts wire its CTS
+  to a free pin and set **Busy (CTS) pin**; the sketch then pauses while the printer
+  is busy.
+- **Print direction:** the factory setting is *Reverse*, so receipts read the right
+  way up as they come out of the panel.
 - **Power-up text:** USART1 on D0/D1 is also the MCU's boot console, so a short line
   of boot text may print when the board restarts. Each receipt starts with a printer
   reset, so it doesn't affect later prints.

@@ -124,3 +124,19 @@ The existing `servo_command` Messenger also accepts `card`, `summary` and `line`
 - QR codes linking to recordings or a species page
 - Cutting the paper (this printer has no cutter); you tear it at the bar
 - Printing from Arduino Cloud chart data; the summary uses the local SQLite log
+
+## Printer findings (SP-RMD9 manual and test prints)
+
+The RS PRO 178-5731 is a rebadged SPRT SP-RMD9. Test prints over D0/D1:
+
+- **Plain text** printed correctly at the configured baud, so the wiring was fine.
+- **`GS v 0`** (ESC/POS raster) and **`DC2 *`** (CSN-A2) aren't in its command set;
+  the printer printed the image bytes as characters.
+- **`ESC *`** printed the picture in 24-dot strips with gaps, because `ESC 3` (line
+  spacing) isn't one of its commands either.
+- Its manual's image command is **`ESC K nL nH data`**: 8-dot-tall lines, one byte
+  per column, top dot first, up to 384 wide. Line spacing is **`ESC 1 n`** in dots,
+  and 0 makes image lines touch. That's now the default encoding.
+- It has a 3 KB buffer and RTS/CTS flow control on its CTS pin, which the sketch can
+  watch on an optional busy pin. It also supports `DLE EOT` status, `ESC J` feed in
+  dots, and ships at 9600 baud with the print direction set to *Reverse*.

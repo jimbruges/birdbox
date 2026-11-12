@@ -108,7 +108,33 @@ def raster_esc_star(image: Image.Image, spacing: int = 24) -> bytes:
     return bytes(out)
 
 
-RASTER_MODES = {"gs_v0": raster_gs_v0, "esc_star": raster_esc_star, "dc2_star": raster_dc2_star}
+def raster_esc_k(image: Image.Image) -> bytes:
+    """ESC K: 8-dot-tall bit-image lines, the image command of SPRT panel printers.
+
+    The RS PRO 178-5731 is an SPRT SP-RMD9. Its manual: ESC K nL nH, then one byte
+    per column (top dot = most significant bit), width up to 384; and ESC 1 0 sets
+    the line spacing to 0 dots so consecutive 8-dot lines touch.
+    """
+    img = image.convert("1")
+    width, height = img.size
+    px = img.load()
+    out = bytearray(b"\x1b1\x00")                       # ESC 1 0: no gap between image lines
+    for top in range(0, height, 8):
+        out += b"\x1bK" + bytes((width & 0xFF, width >> 8))
+        for x in range(width):
+            byte = 0
+            for bit in range(8):
+                y = top + bit
+                if y < height and px[x, y] == 0:          # 0 = black in mode "1"
+                    byte |= 0x80 >> bit
+            out.append(byte)
+        out += b"\n"
+    out += b"\x1b1\x06"                                 # back to the text line spacing (6 dots)
+    return bytes(out)
+
+
+RASTER_MODES = {"esc_k": raster_esc_k, "gs_v0": raster_gs_v0, "esc_star": raster_esc_star,
+                "dc2_star": raster_dc2_star}
 
 
 def raster(image: Image.Image, mode: str = "gs_v0", spacing: int = 24) -> bytes:
@@ -134,7 +160,7 @@ class Printer:
         self.port = "serial"            # "serial" (MCU D0/D1) or "usb"
         self.baud = 9600
         self.device_setting = "auto"    # USB only
-        self.raster_mode = "gs_v0"
+        self.raster_mode = "esc_k"
         self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None

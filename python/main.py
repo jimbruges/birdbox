@@ -317,6 +317,11 @@ def apply_printer_raster(value: str) -> None:
     logger.info(f"Printer image command: {value}")
 
 
+def apply_printer_busy_pin(value: int) -> None:
+    Bridge.call("printer_set_busy_pin", value)
+    logger.info(f"Printer busy line on {'D' + str(value) if value >= 0 else 'no pin'}")
+
+
 def apply_printer_spacing(value: int) -> None:
     printer.line_spacing = value
     logger.info(f"Printer ESC * line spacing set to {value}")
@@ -368,7 +373,8 @@ SETTINGS = {
     "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
     "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
-    "printer_raster": (str, "gs_v0", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
+    "printer_raster": (str, "esc_k", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
+    "printer_busy_pin": (int, -1, -1, 21, None, apply_printer_busy_pin, "Printer", "Busy (CTS) pin", "", False),
     "printer_spacing": (int, 24, 1, 120, 1, apply_printer_spacing, "Printer", "ESC * band spacing (see spacing test)", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
     "button1_pin": (int, 2, -1, 21, None, apply_button_pin(1), "Buttons", "Button 1 pin (D, −1 = none)", "", False),
@@ -378,15 +384,16 @@ SETTINGS = {
     "debug_ui": (bool, False, None, None, None, apply_debug_ui, "Debug", "Debug UI", "", True),
 }
 SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song",
-                   "button1_pin", "button2_pin", "printer_baud")
+                   "button1_pin", "button2_pin", "printer_baud", "printer_busy_pin")
 
 BUTTON_ACTIONS = ("card", "summary", "line", "test", "song", "none")
 # Settings shown as a drop-down: the allowed values, with labels for the debug page.
 CHOICES = {
     "printer_port": {"serial": "MCU serial pins D0/D1", "usb": "USB on the hub"},
     "printer_baud": {str(b): f"{b} baud" for b in (9600, 19200, 38400, 57600, 115200)},
-    "printer_raster": {"gs_v0": "GS v 0 (ESC/POS raster)", "esc_star": "ESC * (bit image)",
-                       "dc2_star": "DC2 * (CSN-A2 / Adafruit)"},
+    "printer_raster": {"esc_k": "ESC K (SPRT / RS PRO panel printers)", "gs_v0": "GS v 0 (ESC/POS raster)",
+                       "esc_star": "ESC * (bit image)", "dc2_star": "DC2 * (CSN-A2 / Adafruit)"},
+    "printer_busy_pin": {"-1": "Not used", **{str(d): f"D{d}" for d in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)}},
     **{f"button{n}_action": {"card": "Print the bird card", "summary": "Print the daily summary",
                              "line": "Print a scroll line", "test": "Test the bird (out, song, in)",
                              "song": "Play the last bird's song", "none": "Nothing"} for n in (1, 2)},
@@ -795,7 +802,7 @@ def api_print(body: dict) -> dict:
     return {"ok": True, "kind": kind}
 
 
-PRINTER_TESTS = ("text", "gs_v0", "esc_star", "dc2_star", "spacing")
+PRINTER_TESTS = ("text", "esc_k", "gs_v0", "esc_star", "dc2_star", "spacing")
 SPACING_TRIALS = (24, 20, 16, 12, 8)
 
 
