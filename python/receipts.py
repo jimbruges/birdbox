@@ -12,6 +12,7 @@ prints.
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -111,6 +112,19 @@ class Canvas:
         return self.image.crop((0, 0, WIDTH, self.y + PAD))
 
 
+def whole_sentences(c: Canvas, text: str, fnt, width: int, max_lines: int = 5) -> list[str]:
+    """As many complete sentences as fit in max_lines, so a description never stops
+    mid-sentence. Only if even the first sentence is too long is it cut short."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    best: list[str] = []
+    for n in range(1, len(sentences) + 1):
+        lines = c.wrap(" ".join(sentences[:n]), fnt, width)
+        if len(lines) > max_lines:
+            break
+        best = lines
+    return best or c.wrap(sentences[0], fnt, width, max_lines=max_lines)
+
+
 def headword(common: str) -> str:
     """'European Robin' -> 'ROBIN, EUROPEAN', as an old encyclopaedia indexes it."""
     words = common.split()
@@ -133,6 +147,21 @@ def truncate(c: Canvas, text: str, fnt, width: int) -> str:
 # dashed, which keeps every row well under the printer's limit.
 
 
+def dithered_box(img: Image.Image, box: tuple[int, int, int, int], caps: bool = True) -> None:
+    """Fill a box with a 2x2-block checker (an even 50% grey that prints cleanly),
+    with solid 2-dot caps at the ends so its length still reads exactly."""
+    x0, y0, x1, y1 = box
+    px = img.load()
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            if (x // 2 + y // 2) % 2 == 0:
+                px[x, y] = 0
+    if caps:
+        d = ImageDraw.Draw(img)
+        d.rectangle((x0, y0, min(x0 + 1, x1), y1), fill=0)
+        d.rectangle((max(x1 - 1, x0), y0, x1, y1), fill=0)
+
+
 def dashed_rule(draw: ImageDraw.ImageDraw, y: int, x0: int = 0, x1: int = WIDTH - 1,
                 dash: int = 4, gap: int = 4, thickness: int = 2) -> None:
     for x in range(x0, x1 + 1, dash + gap):
@@ -153,8 +182,8 @@ def silhouette_image(path: Path, size: int) -> Image.Image:
 def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, height: int = 48) -> Image.Image:
     """The buzzer song as a pitch contour over a dotted five-line staff (log pitch, 1-8 kHz).
 
-    The staff is 2x2 dots every 8 dots, and the contour 6 dots thick, so both print
-    clearly on a thermal head.
+    The staff is 2x2 dots every 8 dots. The contour is a solid 2-dot line inside an
+    8-dot band of 2x2-block grey, so it reads boldly without heating long solid runs.
     """
     img = Image.new("1", (width, height), 1)
     d = ImageDraw.Draw(img)
@@ -170,19 +199,31 @@ def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, heigh
         frac = (math.log(max(1000, min(8000, hz))) - lo) / (hi - lo)
         return bottom - frac * (bottom - top)
 
-    x, path = 2.0, []
+    x, path, paths = 2.0, [], []
     scale = (width - 4) / total
     for start, end, ms in segments:
         x2 = x + ms * scale
         if start <= 0 and end <= 0:            # a rest breaks the line
             if len(path) > 1:
-                d.line(path, fill=0, width=6, joint="curve")
+                paths.append(path)
             path = []
         else:
             path += [(x, y_of(start)), (x2, y_of(end))]
         x = x2
     if len(path) > 1:
-        d.line(path, fill=0, width=6, joint="curve")
+        paths.append(path)
+
+    band = Image.new("1", (width, height), 0)   # 1 = inside the 8-dot band
+    bd = ImageDraw.Draw(band)
+    for pts in paths:
+        bd.line(pts, fill=1, width=8, joint="curve")
+    px, mask = img.load(), band.load()
+    for yy in range(height):
+        for xx in range(width):
+            if mask[xx, yy] and (xx // 2 + yy // 2) % 2 == 0:
+                px[xx, yy] = 0
+    for pts in paths:
+        d.line(pts, fill=0, width=2, joint="curve")
     return img
 
 
@@ -216,11 +257,11 @@ def bird_card(*, common: str, scientific: str, when: datetime, confidence: float
 
     if description:
         c.rule()
-        c.lines(c.wrap(description, font(17), WIDTH, max_lines=4), font(17))
+        c.lines(whole_sentences(c, description, font(17), WIDTH, max_lines=5), font(17))
 
     if song:
         c.rule()
-        c.lines(["Song contour: pitch (1–8 kHz, log scale) against time"], font(12))
+        c.lines(["Vocalisation Chart:"], font(13, True))
         c.gap(1)
         strip = song_contour(song)
         c.image.paste(strip, (0, c.y))
@@ -290,7 +331,7 @@ def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetim
                         font=row_font, fill=0)
             bar_max = WIDTH - name_w - count_w
             bar = max(2, round(bar_max * row["count"] / most))
-            c.draw.rectangle((name_w, y + 5, name_w + bar, y + 14), fill=0)
+            dithered_box(c.image, (name_w, y + 4, name_w + bar, y + 15))
             count = str(row["count"])
             c.draw.text((WIDTH - c.text_width(count, row_font), y), count, font=row_font, fill=0)
             c.y += 21
@@ -311,7 +352,8 @@ def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetim
             if n and h < 2:
                 h = 2
             if h:
-                c.draw.rectangle((x, base - h, x + bar_w - 1, base), fill=0)
+                dithered_box(c.image, (x, base - h, x + bar_w - 1, base), caps=False)
+                c.draw.rectangle((x, base - h, x + bar_w - 1, base - h + 1), fill=0)   # solid top
         dashed_rule(c.draw, base + 1)
         c.y = base + 3
         for k, (hour, _) in enumerate(hourly):

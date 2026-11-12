@@ -67,8 +67,7 @@ def _first_sentence(extract: str, max_chars: int) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     match = re.match(r"(.+?[.!?])(\s|$)", text)
     sentence = match.group(1) if match else text
-    if len(sentence) > max_chars:
-        sentence = sentence[: max_chars - 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    # Kept whole: the card fits it to five lines and never prints half a sentence.
     return sentence
 
 
@@ -177,7 +176,9 @@ def _clean(text: str) -> str:
     text = re.sub(r"[*_#`>]+", "", text)
     text = re.sub(r"\s*\([^)]*\)", "", text)         # the card already shows the scientific name
     text = re.sub(r"\s+", " ", text).strip().strip('"')
-    return text
+    # End on a complete sentence: drop anything after the last full stop.
+    end = max(text.rfind("."), text.rfind("!"), text.rfind("?"))
+    return text[:end + 1] if end > 0 else ""
 
 
 def request_entry(scientific: str, common: str) -> None:

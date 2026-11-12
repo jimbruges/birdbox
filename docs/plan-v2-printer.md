@@ -83,7 +83,7 @@ dashboard gets a Printer section.
 | `printer_enabled` | Boolean | `true` | Master switch. With no printer found, prints are skipped and logged. |
 | `print_each_detection` | Boolean | `false` | Detection scroll. |
 | `card_picture` | Boolean | `true` | Silhouette on the bird card. |
-| `card_song` | Boolean | `true` | Song contour on the bird card. |
+| `card_song` | Boolean | `true` | Vocalisation Chart on the bird card. |
 | `card_description` | Boolean | `true` | Encyclopaedia entry on the bird card. |
 | `card_llm` | Boolean | `true` | Write the entry with the local LLM; otherwise the first sentence of Wikipedia. |
 | `summary_hour` | Integer | `-1` | Hour for the daily summary, −1 for off. |
@@ -140,3 +140,8 @@ The RS PRO 178-5731 is a rebadged SPRT SP-RMD9. Test prints over D0/D1:
 - It has a 3 KB buffer and RTS/CTS flow control on its CTS pin, which the sketch can
   watch on an optional busy pin. It also supports `DLE EOT` status, `ESC J` feed in
   dots, and ships at 9600 baud with the print direction set to *Reverse*.
+
+On paper, full-width one-dot rules and thin strokes disappeared: the head limits how
+many dots it heats in one row. Rules are now 2-dot dashes at half density, and bars
+and the Vocalisation Chart use a 2×2-block grey. Descriptions are fitted to five lines
+and always end on a complete sentence.

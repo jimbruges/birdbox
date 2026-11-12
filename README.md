@@ -186,7 +186,7 @@ board (`data/settings.json`) and survive restarts. Every variable below is optio
 | `printer_enabled` | Boolean | | `true` | Master switch for the [printer](#thermal-printer-and-buttons-optional). With no printer attached, prints are skipped. |
 | `print_each_detection` | Boolean | | `false` | Prints one compact line per detection, building a scroll. |
 | `card_picture` | Boolean | | `true` | PhyloPic silhouette on the bird card. |
-| `card_song` | Boolean | | `true` | Song contour on the bird card. |
+| `card_song` | Boolean | | `true` | Vocalisation Chart on the bird card. |
 | `card_description` | Boolean | | `true` | Short encyclopaedia entry on the bird card. |
 | `card_llm` | Boolean | | `true` | Write that entry with the local LLM (otherwise the first sentence of Wikipedia). |
 | `card_credits` | Boolean | | `true` | Print the small picture and text credits on the card. |
@@ -314,7 +314,7 @@ box works as before, and every receipt can still be previewed on the
 | Bird card (button 1) | Minimal card | Scroll | Daily summary (button 2) |
 |---|---|---|---|
 | <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and song contour"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
-| 37 mm | 15 mm | 3 mm a line | 36 mm (example data) |
+| 38 mm | 15 mm | 3 mm a line | 36 mm (example data) |
 
 ### What it prints
 
@@ -323,9 +323,10 @@ box works as before, and every receipt can still be previewed on the
   been heard today and in total. Optionally, each switchable from the dashboard:
   - a silhouette from [PhyloPic](https://www.phylopic.org/), beside the text so it
     costs no extra paper, with the artist and licence credited
-  - a two-sentence encyclopaedia entry (see below), credited to Wikipedia
-  - the song contour: the buzzer song for the species as pitch (1–8 kHz, log scale)
-    against time
+  - a short encyclopaedia entry (see below), credited to Wikipedia. It's fitted to at
+    most five lines and always ends on a complete sentence.
+  - a **Vocalisation Chart**: the buzzer song for the species as pitch (1–8 kHz, log
+    scale) against time
   - a one-line credit for the picture and text, in small type (`card_credits`).
     Many PhyloPic images are CC BY, which requires credit, so leave it on if you
     share prints.
@@ -393,7 +394,10 @@ receipt out of `Serial1`, the UNO Q's hardware serial port:
   - **Print speed** (default 10 mm/s) limits how fast image data is sent. Slower
     printing also comes out darker and more even. Set it to 0 to rely on the busy
     line alone.
-- **Print quality:** the head needs current for dark areas. If prints are faint or
+- **Print quality:** a thermal head can only heat so many dots in one row, so the
+  receipts avoid long solid runs: rules are 2-dot dashes, and bars and the
+  Vocalisation Chart are drawn in a 2×2-block grey. The head also needs current for
+  dark areas. If prints are faint or
   patchy, use a supply towards the top of the 5–8.5 V range, slow **Print speed**, or
   raise *Printing Density* in the printer's setup menu.
 - **Print direction:** the factory setting is *Reverse*, so receipts read the right
