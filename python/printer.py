@@ -82,12 +82,17 @@ def raster_dc2_star(image: Image.Image) -> bytes:
     return bytes(out)
 
 
-def raster_esc_star(image: Image.Image) -> bytes:
-    """ESC * 33: the older column-based bit image, printed in 24-dot bands."""
+def raster_esc_star(image: Image.Image, spacing: int = 24) -> bytes:
+    """ESC * 33: the older column-based bit image, printed in 24-dot bands.
+
+    Between bands the printer feeds one line, set with ESC 3 to `spacing`. Printers
+    measure that in different units (dots on most, 1/180 inch or similar on
+    others), so it's a setting: the right value makes the bands just touch.
+    """
     img = image.convert("1")
     width, height = img.size
     px = img.load()
-    out = bytearray(b"\x1b3\x18")                       # line spacing = 24 dots, so bands touch
+    out = bytearray(b"\x1b3" + bytes((max(1, min(255, spacing)),)))
     for top in range(0, height, 24):
         out += b"\x1b*\x21" + bytes((width & 0xFF, width >> 8))
         for x in range(width):
@@ -106,7 +111,9 @@ def raster_esc_star(image: Image.Image) -> bytes:
 RASTER_MODES = {"gs_v0": raster_gs_v0, "esc_star": raster_esc_star, "dc2_star": raster_dc2_star}
 
 
-def raster(image: Image.Image, mode: str = "gs_v0") -> bytes:
+def raster(image: Image.Image, mode: str = "gs_v0", spacing: int = 24) -> bytes:
+    if mode == "esc_star":
+        return raster_esc_star(image, spacing)
     return RASTER_MODES.get(mode, raster_gs_v0)(image)
 
 
@@ -128,6 +135,7 @@ class Printer:
         self.baud = 9600
         self.device_setting = "auto"    # USB only
         self.raster_mode = "gs_v0"
+        self.line_spacing = 24          # ESC * only: ESC 3 value that makes 24-dot bands touch
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
@@ -176,6 +184,10 @@ class Printer:
         """Queue an image. Returns False (and logs) when there's no printer to send to."""
         return self._queue((image, label, tear, mode))
 
+    def submit_raw(self, data: bytes, label: str) -> bool:
+        """Queue ready-made printer bytes (tests)."""
+        return self._queue((data, label, True, None))
+
     def submit_text(self, text: str, label: str) -> bool:
         """Queue plain ASCII text, for checking the wiring and baud rate."""
         return self._queue((text.encode("ascii", "replace"), label, True, None))
@@ -195,7 +207,8 @@ class Printer:
     def _worker(self) -> None:
         while True:
             content, label, tear, mode = self._jobs.get()
-            body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode)
+            body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode,
+                                                                     self.line_spacing)
             payload = ESC_INIT + body + (feed(TEAR_FEED_DOTS) if tear else b"")
             try:
                 self._write(payload)

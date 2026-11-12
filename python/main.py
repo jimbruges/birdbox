@@ -317,6 +317,11 @@ def apply_printer_raster(value: str) -> None:
     logger.info(f"Printer image command: {value}")
 
 
+def apply_printer_spacing(value: int) -> None:
+    printer.line_spacing = value
+    logger.info(f"Printer ESC * line spacing set to {value}")
+
+
 def apply_printer_device(value: str) -> None:
     printer.device_setting = value
     if printer.port == "usb":
@@ -364,6 +369,7 @@ SETTINGS = {
     "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
     "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
     "printer_raster": (str, "gs_v0", None, None, None, apply_printer_raster, "Printer", "Image command", "", False),
+    "printer_spacing": (int, 24, 1, 120, 1, apply_printer_spacing, "Printer", "ESC * band spacing (see spacing test)", "", False),
     "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
     "button1_pin": (int, 2, -1, 21, None, apply_button_pin(1), "Buttons", "Button 1 pin (D, −1 = none)", "", False),
     "button1_action": (str, "card", None, None, None, apply_logged("Button 1 action"), "Buttons", "Button 1 does", "", False),
@@ -789,7 +795,29 @@ def api_print(body: dict) -> dict:
     return {"ok": True, "kind": kind}
 
 
-PRINTER_TESTS = ("text", "gs_v0", "esc_star", "dc2_star")
+PRINTER_TESTS = ("text", "gs_v0", "esc_star", "dc2_star", "spacing")
+SPACING_TRIALS = (24, 20, 16, 12, 8)
+
+
+def _spacing_test() -> bytes:
+    """The same three-band pattern at several ESC * spacings, each labelled in plain text.
+
+    The right spacing shows unbroken vertical bars and a smooth diagonal, with no
+    white gaps (too big) or overlapping, squashed bands (too small).
+    """
+    from PIL import Image, ImageDraw
+
+    from printer import raster_esc_star
+
+    img = Image.new("1", (receipts.WIDTH, 72), 1)
+    d = ImageDraw.Draw(img)
+    for x in (4, 120, 240, 372):
+        d.rectangle((x, 0, x + 7, 71), fill=0)
+    d.line((0, 0, receipts.WIDTH - 1, 71), fill=0, width=3)
+    out = bytearray()
+    for n in SPACING_TRIALS:
+        out += f"Spacing {n}:\n".encode() + raster_esc_star(img, n) + b"\n"
+    return bytes(out)
 
 
 def _test_pattern(mode: str):
@@ -812,7 +840,9 @@ def api_printer_test(body: dict) -> dict:
     test = str(body.get("test", ""))
     if test not in PRINTER_TESTS:
         raise HTTPException(status_code=400, detail=f"Unknown test {test!r}")
-    if test == "text":
+    if test == "spacing":
+        ok = printer.submit_raw(_spacing_test(), "ESC * spacing test")
+    elif test == "text":
         ok = printer.submit_text(
             f"BirdBox printer test\n{printer.device}\n0123456789 ABCDEFGHIJKLM abcdefghijklm\n"
             "If this reads correctly, the wiring and baud rate are right.\n", "text test")
