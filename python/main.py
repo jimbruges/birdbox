@@ -45,13 +45,18 @@ logger = Logger("BirdBox")
 birds = BirdNET()
 cloud = ArduinoCloud()
 web_ui = WebUI()
-printer = Printer()
+printer = Printer(lambda name, *args: _bridge(name, *args))
 
 # Every Cloud variable registered below, so the debug UI can list them all.
 variable_names: list[str] = []
 
 # Serialises Bridge calls made from the web UI, Cloud writes and the heartbeat.
 _bridge_lock = threading.RLock()
+
+
+def _bridge(name: str, *args):
+    with _bridge_lock:
+        return Bridge.call(name, *args)
 
 # Counters, reset at local midnight.
 _today = date.today()
@@ -295,10 +300,29 @@ def apply_hold_for_song(value: bool) -> None:
 # and the debug page still previews each receipt.
 
 
+def apply_printer_port(value: str) -> None:
+    printer.port = value
+    printer.begin()
+    logger.info(f"Printer connection: {printer.device or 'no USB printer found'}")
+
+
+def apply_printer_baud(value: int) -> None:
+    printer.baud = value
+    printer.begin()
+    logger.info(f"Printer serial speed set to {value} baud")
+
+
 def apply_printer_device(value: str) -> None:
     printer.device_setting = value
-    found = printer.device
-    logger.info(f"Printer: {found or 'none found'} (setting {value!r})")
+    if printer.port == "usb":
+        logger.info(f"USB printer: {printer.device or 'none found'} (setting {value!r})")
+
+
+def apply_button_pin(index: int):
+    def apply(value: int) -> None:
+        Bridge.call("button_set_pin", index, value)
+        logger.info(f"Button {index} on {'D' + str(value) if value >= 0 else 'no pin'}")
+    return apply
 
 
 def apply_logged(name: str):
@@ -330,11 +354,31 @@ SETTINGS = {
     "card_song": (bool, True, None, None, None, apply_logged("Card song"), "Printer", "Card: song contour", "", True),
     "card_description": (bool, True, None, None, None, apply_logged("Card description"), "Printer", "Card: description", "", True),
     "card_llm": (bool, True, None, None, None, apply_logged("LLM descriptions"), "Printer", "Description written by the local LLM", "", True),
+    "card_credits": (bool, True, None, None, None, apply_logged("Card credits"), "Printer", "Card: picture and text credits", "", True),
     "summary_hour": (int, -1, -1, 23, 1, apply_logged("Daily summary hour"), "Printer", "Daily summary at (−1 = off)", "h", True),
-    "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "Printer device", "", False),
+    "printer_port": (str, "serial", None, None, None, apply_printer_port, "Printer", "Connected to", "", False),
+    "printer_baud": (int, 9600, 9600, 115200, None, apply_printer_baud, "Printer", "Serial speed", "baud", False),
+    "printer_device": (str, "auto", None, None, None, apply_printer_device, "Printer", "USB device", "", False),
+    "button1_pin": (int, 2, -1, 21, None, apply_button_pin(1), "Buttons", "Button 1 pin (D, −1 = none)", "", False),
+    "button1_action": (str, "card", None, None, None, apply_logged("Button 1 action"), "Buttons", "Button 1 does", "", False),
+    "button2_pin": (int, 3, -1, 21, None, apply_button_pin(2), "Buttons", "Button 2 pin (D, −1 = none)", "", False),
+    "button2_action": (str, "summary", None, None, None, apply_logged("Button 2 action"), "Buttons", "Button 2 does", "", False),
     "debug_ui": (bool, False, None, None, None, apply_debug_ui, "Debug", "Debug UI", "", True),
 }
-SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song")
+SKETCH_SETTINGS = ("servo_speed", "travel_ms", "home_overrun", "hold_ms", "hold_for_song",
+                   "button1_pin", "button2_pin", "printer_baud")
+
+BUTTON_ACTIONS = ("card", "summary", "line", "test", "song", "none")
+# Settings shown as a drop-down: the allowed values, with labels for the debug page.
+CHOICES = {
+    "printer_port": {"serial": "MCU serial pins D0/D1", "usb": "USB on the hub"},
+    "printer_baud": {str(b): f"{b} baud" for b in (9600, 19200, 38400, 57600, 115200)},
+    **{f"button{n}_action": {"card": "Print the bird card", "summary": "Print the daily summary",
+                             "line": "Print a scroll line", "test": "Test the bird (out, song, in)",
+                             "song": "Play the last bird's song", "none": "Nothing"} for n in (1, 2)},
+    **{f"button{n}_pin": {"-1": "Not used", **{str(d): f"D{d}" for d in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)}}
+       for n in (1, 2)},
+}
 
 
 def _coerce(name: str, value: object) -> object:
@@ -348,6 +392,8 @@ def _coerce(name: str, value: object) -> object:
         else:
             value = kind(float(value))
     except (TypeError, ValueError):
+        return default
+    if name in CHOICES and str(value) not in CHOICES[name]:
         return default
     if low is not None:
         value = max(low, min(high, value))
@@ -420,7 +466,8 @@ def build_card() -> tuple[object, dict | None]:
     image = receipts.bird_card(common=bird["common"], scientific=bird["scientific"], when=bird["when"],
                                confidence=bird["confidence"], today=max(today, 1), total=max(total, 1),
                                song=song, picture=picture, description=text and text[0],
-                               description_source=text[1] if text else "wikipedia")
+                               description_source=text[1] if text else "wikipedia",
+                               credits=settings["card_credits"])
     return image, bird
 
 
@@ -575,6 +622,7 @@ def _settings_schema() -> list[dict]:
             "label": label,
             "unit": unit,
             "cloud": synced,
+            "choices": CHOICES.get(name),
         }
         for name, (kind, _, low, high, step, _, group, label, unit, synced) in SETTINGS.items()
     ]
@@ -617,6 +665,7 @@ def api_status() -> dict:
         "printer": {
             "enabled": settings["printer_enabled"],
             "device": printer.device,
+            "status": printer.describe_status(),
             "printed": printer.printed,
             "last_error": printer.last_error,
             "llm": birdinfo.last_exchange(),
@@ -748,8 +797,8 @@ _buzzer_found: bool | None = None
 _clear_command = False
 _summary_printed_on: date | None = None
 
-# Panel buttons: bit n of the sketch's button_presses() is button n+1.
-BUTTON_ACTIONS = {1: "card", 2: "summary"}
+_printer_checked_at = 0.0
+PRINTER_CHECK_S = 30
 
 
 def _check_schedule() -> None:
@@ -765,7 +814,7 @@ def _check_schedule() -> None:
 
 def heartbeat() -> None:
     """Keep the Cloud's view of the listener honest."""
-    global _last_state, _buzzer_found, _clear_command
+    global _last_state, _buzzer_found, _clear_command, _printer_checked_at
 
     # Fast enough to see the rail state change while testing from the dashboard.
     time.sleep(0.5)
@@ -788,11 +837,18 @@ def heartbeat() -> None:
         if _last_state is None:
             logger.warning(f"Sketch not answering yet: {err}")
         return
-    for bit, kind in BUTTON_ACTIONS.items():
-        if presses & (1 << (bit - 1)):
-            logger.info(f"Button {bit} pressed: {kind}")
-            print_receipt(kind)
+    # Bit n of the sketch's button_presses() is button n+1.
+    for n in (1, 2):
+        if presses & (1 << (n - 1)):
+            action = settings[f"button{n}_action"]
+            logger.info(f"Button {n} pressed: {action}")
+            if action != "none":
+                run_command(None, action)
     _check_schedule()
+    if printer.port == "serial" and time.monotonic() - _printer_checked_at > PRINTER_CHECK_S and state == "in":
+        # Only while the bird is in: the status query blocks the sketch for up to 150 ms.
+        _printer_checked_at = time.monotonic()
+        printer.check()
     if state != _last_state:
         if _last_state is None:
             logger.info(f"Sketch connected, rail {state}")

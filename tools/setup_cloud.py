@@ -45,6 +45,7 @@ VARIABLES = {
     "card_song": ("STATUS", "READ_WRITE"),
     "card_description": ("STATUS", "READ_WRITE"),
     "card_llm": ("STATUS", "READ_WRITE"),
+    "card_credits": ("STATUS", "READ_WRITE"),
     "summary_hour": ("INT", "READ_WRITE"),
     # Results, board -> Cloud
     "last_species": ("CHARSTRING", "READ_ONLY"),
@@ -112,10 +113,11 @@ PRO_DASHBOARD = [
     ("Switch", "Printing", "printer_enabled", 4, 34, 4, 4, {"showLabels": True}),
     ("Switch", "Print every detection", "print_each_detection", 8, 34, 4, 4, {"showLabels": True}),
     ("Slider", "Daily summary at (hour, -1 = off)", "summary_hour", 12, 34, 12, 5, {"min": -1, "max": 23}),
-    ("Switch", "Card: picture", "card_picture", 0, 39, 6, 4, {"showLabels": True}),
-    ("Switch", "Card: song", "card_song", 6, 39, 6, 4, {"showLabels": True}),
-    ("Switch", "Card: description", "card_description", 12, 39, 6, 4, {"showLabels": True}),
-    ("Switch", "Description by local LLM", "card_llm", 18, 39, 6, 4, {"showLabels": True}),
+    ("Switch", "Card: picture", "card_picture", 0, 39, 5, 4, {"showLabels": True}),
+    ("Switch", "Card: song", "card_song", 5, 39, 5, 4, {"showLabels": True}),
+    ("Switch", "Card: description", "card_description", 10, 39, 5, 4, {"showLabels": True}),
+    ("Switch", "Description by local LLM", "card_llm", 15, 39, 5, 4, {"showLabels": True}),
+    ("Switch", "Card: credits", "card_credits", 20, 39, 4, 4, {"showLabels": True}),
 ]
 
 DASHBOARDS = {"free": ("BirdBox Free", FREE_DASHBOARD), "pro": ("BirdBox Pro", PRO_DASHBOARD)}

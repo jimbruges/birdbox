@@ -292,7 +292,12 @@ def silhouette(scientific: str) -> tuple[Path, str] | None:
                 found = None
                 try:
                     for name in (scientific, scientific.split()[0]):
-                        image = _phylopic_lookup(name)
+                        try:
+                            image = _phylopic_lookup(name)
+                        except urllib.error.HTTPError as err:
+                            if err.code != 404:
+                                raise
+                            image = None  # no such node: try the genus, then give up
                         if image:
                             links = image["_links"]
                             files = sorted(links.get("rasterFiles", []),

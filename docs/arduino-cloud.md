@@ -13,7 +13,7 @@ The app doesn't need Cloud credentials in its code or configuration. The board's
 
 ## Which plan you need
 
-The app registers **31 variables** (24 without the optional printer). On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
+The app registers **32 variables** (24 without the optional printer). On the [Arduino Cloud plans](https://cloud.arduino.cc/plans/)
 page, the **Free** plan allows **5 variables per Thing**; **Maker** and above are
 unlimited.
 
@@ -135,6 +135,7 @@ default).
 | `card_song` | Boolean | `true` | |
 | `card_description` | Boolean | `true` | |
 | `card_llm` | Boolean | `true` | |
+| `card_credits` | Boolean | `true` | |
 | `summary_hour` | Integer Number | `-1` | −1 (off) – 23 |
 
 Out-of-range values are clamped by the app.
@@ -224,7 +225,7 @@ Switching the bird off and on again from the dashboard:
 | Calibration | **Switch** | `debug_ui` | |
 | Printer | **Switch** | `printer_enabled`, `print_each_detection` | |
 | Printer | **Slider** | `summary_hour` | Min `-1`, max `23` |
-| Printer | **Switch** | `card_picture`, `card_song`, `card_description`, `card_llm` | |
+| Printer | **Switch** | `card_picture`, `card_song`, `card_description`, `card_llm`, `card_credits` | |
 
 The script also sets a phone layout for each dashboard, keeping the same order with
 small widgets two to a row.

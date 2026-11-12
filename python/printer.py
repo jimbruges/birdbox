@@ -1,13 +1,22 @@
 # SPDX-License-Identifier: MPL-2.0
-"""ESC/POS output to a USB thermal printer, run from a background queue.
+"""ESC/POS output to a thermal printer, run from a background queue.
 
 Receipts arrive as 1-bit images and are sent as raster graphics (GS v 0), so
-what prints is exactly what the debug page previews. With no printer attached
-every job is dropped with a log line, and the rest of the app carries on.
+what prints is exactly what the debug page previews.
+
+Two ways to reach the printer:
+- "serial" (default): the MCU's hardware serial pins D0/D1. The bytes go to the
+  sketch over the Router Bridge in base64 chunks; it buffers them and feeds the
+  UART at the printer's baud rate.
+- "usb": a USB printer on the hub, written directly from Linux.
+
+With no printer attached, jobs are dropped (USB) or simply go nowhere (serial),
+and the rest of the app carries on.
 """
 
 from __future__ import annotations
 
+import base64
 import glob
 import os
 import queue
@@ -29,6 +38,8 @@ BAND_ROWS = 128                 # rows per raster command; keeps each write smal
 TEAR_FEED_DOTS = 96             # 12 mm: enough to tear a card off at the bar
 
 ESC_INIT = b"\x1b@"
+CHUNK = 144                     # raw bytes per Bridge call: 192 base64 chars, inside the RPC buffer
+BAUD_RATES = (9600, 19200, 38400, 57600, 115200)
 
 
 def find_device(setting: str = "auto") -> str | None:
@@ -68,19 +79,56 @@ def feed(dots: int) -> bytes:
 class Printer:
     """Queues receipts and writes them to the printer one at a time."""
 
-    def __init__(self) -> None:
-        self.device_setting = "auto"
+    def __init__(self, bridge_call) -> None:
+        self.port = "serial"            # "serial" (MCU D0/D1) or "usb"
+        self.baud = 9600
+        self.device_setting = "auto"    # USB only
+        self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
+        self._bridge_call = bridge_call
         self._jobs: queue.Queue = queue.Queue(maxsize=50)
         threading.Thread(target=self._worker, name="printer", daemon=True).start()
 
     @property
     def device(self) -> str | None:
+        """Where jobs go, or None when there's nowhere to send them."""
+        if self.port == "serial":
+            return f"MCU serial D0/D1 at {self.baud} baud"
         return find_device(self.device_setting)
 
+    @property
+    def busy(self) -> bool:
+        return not self._jobs.empty()
+
+    def begin(self) -> None:
+        """(Re)start the MCU's UART at the configured baud rate."""
+        if self.port == "serial":
+            self._bridge_call("printer_begin", self.baud)
+
+    def check(self) -> int | None:
+        """Ask a serial printer for its status; -1 means it didn't answer."""
+        if self.port != "serial" or self.busy:
+            return self.status
+        try:
+            self.status = int(self._bridge_call("printer_status"))
+        except Exception as err:  # noqa: BLE001 - sketch not up yet
+            logger.info(f"Printer status unavailable: {err}")
+        return self.status
+
+    def describe_status(self) -> str:
+        if self.port != "serial":
+            return "found" if self.device else "not found"
+        if self.status is None:
+            return "not checked"
+        if self.status == -1:
+            return "no reply (printer off, or its TX not wired to D0)"
+        if self.status == -2:
+            return "printing"
+        return "ready" if self.status & 0x08 == 0 else "offline"
+
     def submit(self, image: Image.Image, label: str, tear: bool = True) -> bool:
-        """Queue an image. Returns False (and logs) when no printer is attached."""
+        """Queue an image. Returns False (and logs) when there's no printer to send to."""
         if self.device is None:
             logger.info(f"No printer found, skipping {label}")
             return False
@@ -105,6 +153,29 @@ class Printer:
                 logger.warning(f"Could not print {label}: {err}")
 
     def _write(self, payload: bytes) -> None:
+        if self.port == "serial":
+            self._write_serial(payload)
+        else:
+            self._write_usb(payload)
+
+    def _write_serial(self, payload: bytes) -> None:
+        """Stream to the sketch's print buffer, waiting whenever it's full."""
+        for start in range(0, len(payload), CHUNK):
+            chunk = base64.b64encode(payload[start:start + CHUNK]).decode()
+            deadline = time.monotonic() + 30
+            while True:
+                try:
+                    free = int(self._bridge_call("printer_write", chunk))
+                except Exception as err:  # noqa: BLE001
+                    raise OSError(f"sketch not answering: {err}") from err
+                if free >= 0:
+                    break
+                if time.monotonic() > deadline:
+                    raise OSError("printer buffer stayed full for 30 s")
+                # The buffer drains at the baud rate (about 1 KB/s at 9600).
+                time.sleep(0.05)
+
+    def _write_usb(self, payload: bytes) -> None:
         path = self.device
         if path is None:
             raise OSError("printer disconnected")

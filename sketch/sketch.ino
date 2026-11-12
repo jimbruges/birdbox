@@ -27,10 +27,16 @@ const int MAX_OFFSET_US = 500;  // 500 us off neutral = full speed
 const int OUT_SIGN = -1;
 
 // Optional panel buttons, each wired from the pin to GND. Unconnected pins stay
-// high through the pull-up and never trigger.
-const int PIN_BUTTONS[] = {2, 3};  // button 1: bird card, button 2: daily summary
+// high through the pull-up and never trigger. The pins (and what each button
+// does) are settings in the Python app, sent here with button_set_pin().
 const int BUTTON_COUNT = 2;
+int buttonPins[BUTTON_COUNT] = {2, 3};  // -1 = not used
 const unsigned long DEBOUNCE_MS = 30;
+
+// Optional thermal printer on the hardware serial pins: D1 (TX) to the printer's
+// RX, D0 (RX) from its TX for status replies. 3.3 V logic: an RS-232 printer
+// needs a MAX3232-style level shifter in between.
+#define PRINTER Serial1
 
 // --- Rail ------------------------------------------------------------------
 
@@ -272,9 +278,27 @@ bool buttonDown[BUTTON_COUNT];
 unsigned long buttonChangedAt[BUTTON_COUNT];
 int buttonPresses = 0;  // bit n set: button n+1 pressed since the last poll
 
+void button_set_pin(int index, int pin) {
+    if (index < 1 || index > BUTTON_COUNT) {
+        return;
+    }
+    // D0/D1 belong to the printer and D9 to the servo.
+    if (pin == 0 || pin == 1 || pin == PIN_SERVO || pin > 21) {
+        pin = -1;
+    }
+    buttonPins[index - 1] = pin;
+    buttonDown[index - 1] = false;
+    if (pin >= 0) {
+        pinMode(pin, INPUT_PULLUP);
+    }
+}
+
 void updateButtons(unsigned long now) {
     for (int i = 0; i < BUTTON_COUNT; i++) {
-        bool down = digitalRead(PIN_BUTTONS[i]) == LOW;
+        if (buttonPins[i] < 0) {
+            continue;
+        }
+        bool down = digitalRead(buttonPins[i]) == LOW;
         if (down != buttonDown[i] && now - buttonChangedAt[i] >= DEBOUNCE_MS) {
             buttonDown[i] = down;
             buttonChangedAt[i] = now;
@@ -291,13 +315,104 @@ int button_presses() {
     return pressed;
 }
 
+// --- Printer -----------------------------------------------------------------
+// The Python app renders each receipt and streams the ESC/POS bytes here as
+// base64 chunks. They're queued in a ring buffer and drained to the UART from
+// loop() as fast as the baud rate allows, so printing never stalls the servo.
+
+const int PRINT_BUFFER_SIZE = 4096;
+uint8_t printBuffer[PRINT_BUFFER_SIZE];
+int printHead = 0;   // next byte to send
+int printCount = 0;  // bytes waiting
+
+int printFree() {
+    return PRINT_BUFFER_SIZE - printCount;
+}
+
+int b64value(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
+void printer_begin(int baud) {
+    PRINTER.end();
+    PRINTER.begin(baud);
+    printHead = printCount = 0;
+}
+
+// Queue one base64 chunk. Returns the free space left, or -1 (nothing queued)
+// if the chunk doesn't fit yet; the app waits and sends it again.
+int printer_write(String chunk) {
+    int bytes = chunk.length() / 4 * 3;
+    if (bytes > printFree()) {
+        return -1;
+    }
+    uint32_t acc = 0;
+    int bits = 0;
+    for (unsigned int i = 0; i < chunk.length(); i++) {
+        int v = b64value(chunk[i]);
+        if (v < 0) {
+            continue;  // '=' padding
+        }
+        acc = (acc << 6) | v;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            printBuffer[(printHead + printCount) % PRINT_BUFFER_SIZE] = (acc >> bits) & 0xFF;
+            printCount++;
+        }
+    }
+    return printFree();
+}
+
+int printer_free() {
+    return printFree();
+}
+
+// ESC/POS "transmit status" (DLE EOT 1). Returns the printer's status byte, -1
+// if it didn't answer (not connected, or its TX isn't wired to D0), or -2 while
+// a print is still going out.
+int printer_status() {
+    if (printCount > 0) {
+        return -2;
+    }
+    while (PRINTER.available()) {
+        PRINTER.read();
+    }
+    const uint8_t query[] = {0x10, 0x04, 0x01};
+    PRINTER.write(query, sizeof(query));
+    unsigned long started = millis();
+    while (millis() - started < 150) {
+        if (PRINTER.available()) {
+            return PRINTER.read();
+        }
+    }
+    return -1;
+}
+
+void updatePrinter() {
+    int room = PRINTER.availableForWrite();
+    while (room > 0 && printCount > 0) {
+        int run = min(min(room, printCount), PRINT_BUFFER_SIZE - printHead);
+        PRINTER.write(printBuffer + printHead, run);
+        printHead = (printHead + run) % PRINT_BUFFER_SIZE;
+        printCount -= run;
+        room -= run;
+    }
+}
+
 void setup() {
     Monitor.begin(115200);
 
     pinMode(LED_BUILTIN, OUTPUT);
     for (int i = 0; i < BUTTON_COUNT; i++) {
-        pinMode(PIN_BUTTONS[i], INPUT_PULLUP);
+        pinMode(buttonPins[i], INPUT_PULLUP);
     }
+    PRINTER.begin(9600);
     digitalWrite(LED_BUILTIN, HIGH);  // active-low: HIGH is off
 
     applyDrive(0);
@@ -323,6 +438,11 @@ void setup() {
     Bridge.provide_safe("buzzer_stop", buzzer_stop);
     Bridge.provide_safe("buzzer_present", buzzer_present);
     Bridge.provide_safe("button_presses", button_presses);
+    Bridge.provide_safe("button_set_pin", button_set_pin);
+    Bridge.provide_safe("printer_begin", printer_begin);
+    Bridge.provide_safe("printer_write", printer_write);
+    Bridge.provide_safe("printer_free", printer_free);
+    Bridge.provide_safe("printer_status", printer_status);
 
     Monitor.println(buzzerFound ? "Buzzer found" : "No Modulino Buzzer found");
 
@@ -336,6 +456,7 @@ void loop() {
 
     digitalWrite(LED_BUILTIN, mode == IDLE ? HIGH : LOW);
     updateButtons(now);
+    updatePrinter();
     updateSong(now);
 
     switch (mode) {

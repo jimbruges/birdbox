@@ -179,7 +179,7 @@ def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, heigh
 def bird_card(*, common: str, scientific: str, when: datetime, confidence: float,
               today: int, total: int, song: list | None = None,
               picture: tuple[Path, str] | None = None, description: str | None = None,
-              description_source: str = "wikipedia") -> Image.Image:
+              description_source: str = "wikipedia", credits: bool = True) -> Image.Image:
     """An encyclopaedia entry for the last bird heard, in as little paper as possible."""
     c = Canvas()
     pic_size = 92
@@ -207,21 +207,21 @@ def bird_card(*, common: str, scientific: str, when: datetime, confidence: float
 
     if song:
         c.rule()
-        c.lines(["Song, as the box plays it"], font(13))
+        c.lines(["Song contour: pitch (1–8 kHz, log scale) against time"], font(12))
         c.gap(1)
         strip = song_contour(song)
         c.image.paste(strip, (0, c.y))
         c.y += strip.height
 
-    credits = []
-    if picture:
-        credits.append("Fig. " + picture[1].removeprefix("Silhouette: "))
-    if description:
-        credits.append("Text after Wikipedia, CC BY-SA" if description_source == "llm"
-                       else "Text: Wikipedia, CC BY-SA")
-    if credits:
-        c.rule()
-        c.lines(c.wrap(". ".join(credits) + ".", font(12), WIDTH), font(12), spacing=1)
+    notes = []
+    if credits and picture:
+        notes.append("Fig. " + picture[1].removeprefix("Silhouette: "))
+    if credits and description:
+        notes.append("Text after Wikipedia, CC BY-SA" if description_source == "llm"
+                     else "Text: Wikipedia, CC BY-SA")
+    if notes:
+        c.gap(3)
+        c.lines(c.wrap(". ".join(notes) + ".", font(10), WIDTH), font(10), spacing=0)
     return c.done()
 
 

@@ -12,13 +12,16 @@ can still be previewed on the debug page.
 | [RS PRO High Speed Thermal Line Panel Printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | 58 mm paper, 384 dots per line (8 dots/mm), USB 2.0 or RS-232. Powered from **3.5–8.5 V, up to 3 A**, so it needs its own supply: it can't run from the UNO Q or the hub's USB ports. |
 | 1–2 momentary panel-mount push buttons | Normally open. One side to a digital pin, the other to GND. The sketch uses the internal pull-ups. |
 
-- **Printer data:** USB into a USB-A port on the Arduino USB-C Hub. On Linux it appears
-  as `/dev/usb/lp0` (USB printer class) or `/dev/ttyACM0` (USB serial). The app
-  container already sees the board's `/dev`, so no extra configuration is needed.
-  The RS-232 port uses ±12 V levels, so it can't connect to the UNO Q's pins
-  directly; a USB-to-RS-232 adapter (`/dev/ttyUSB0`) also works.
-- **Buttons:** D2 (bird card) and D3 (daily summary), each to GND. An unconnected
-  pin stays high and never triggers.
+- **Printer data:** the MCU's hardware serial port, `Serial1` on D0 (RX) and D1 (TX),
+  plus a shared GND. The app streams each receipt to the sketch over the Router
+  Bridge in base64 chunks; the sketch keeps a 4 KB buffer and feeds the UART from
+  `loop()` without blocking, so the servo and buzzer keep their timing. The UNO Q's
+  pins are 3.3 V, so an RS-232 printer needs a MAX3232 level shifter. USART1 is also
+  the Zephyr boot console, so a line of boot text may print at power-up. A USB
+  printer on the hub is supported as an alternative.
+- **Buttons:** two, on D2 and D3 by default, each to GND with internal pull-ups. The
+  pins and each button's action (card, summary, scroll line, test, song or nothing)
+  are settings, sent to the sketch with `button_set_pin()`.
 
 ## Receipts
 
@@ -84,7 +87,9 @@ dashboard gets a Printer section.
 | `card_description` | Boolean | `true` | Encyclopaedia entry on the bird card. |
 | `card_llm` | Boolean | `true` | Write the entry with the local LLM; otherwise the first sentence of Wikipedia. |
 | `summary_hour` | Integer | `-1` | Hour for the daily summary, −1 for off. |
-| `printer_device` | board only | `auto` | `auto`, or a device path such as `/dev/usb/lp0`. |
+| `card_credits` | Boolean | `true` | Small picture and text credits on the card. |
+| `printer_port`, `printer_baud`, `printer_device` | board only | `serial`, `9600`, `auto` | How the printer is connected. |
+| `button1_pin`, `button1_action`, `button2_pin`, `button2_action` | board only | `2`, `card`, `3`, `summary` | What each button does and where it's wired. |
 
 The existing `servo_command` Messenger also accepts `card`, `summary` and `line`.
 

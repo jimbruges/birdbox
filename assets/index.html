@@ -192,6 +192,8 @@
   .llm { margin-top: 10px; }
   .llm pre { white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; }
   .setting input[type="text"] { width: 160px; }
+  .setting select { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line);
+                    background: var(--bg); color: var(--ink); max-width: 100%; }
   @media (max-width: 420px) {
     body { padding: 12px; }
     .row label { min-width: 0; width: 100%; }
@@ -502,7 +504,7 @@
     if (!pr) return;
     $("printerOn").textContent = pr.enabled ? "printing on" : "printing off";
     $("printerOn").className = "pill " + (pr.enabled ? "ok" : "warn");
-    $("printerDevice").textContent = pr.device ? pr.device : "no printer found";
+    $("printerDevice").textContent = (pr.device ? pr.device : "no printer found") + (pr.status ? ` · ${pr.status}` : "");
     $("printerDevice").className = "pill " + (pr.device ? "ok" : "");
     $("printerCount").textContent = (pr.printed ? `${pr.printed} printed since start` : "") +
       (pr.last_error ? ` · last error: ${pr.last_error}` : "");
@@ -561,7 +563,7 @@
       c.box.checked = !!value;
     } else {
       if (c.range) c.range.value = value;
-      c.num.value = value;
+      c.num.value = String(value);
     }
   }
 
@@ -572,7 +574,9 @@
         delete editing[name];
         showValue(name, r.value);
         const c = controls[name];
-        const shown = c.type === "bool" ? (r.value ? "on" : "off") : `${r.value}${c.unit ? " " + c.unit : ""}`;
+        const shown = c.type === "bool" ? (r.value ? "on" : "off")
+          : c.choices ? (c.choices[String(r.value)] || r.value)
+          : `${r.value}${c.unit ? " " + c.unit : ""}`;
         toast(`${c.label}: ${shown}`);
       })
       .catch((err) => { delete editing[name]; toast(err.message, true); });
@@ -609,6 +613,23 @@
         label.append(box, " " + s.label);
         row.appendChild(label);
         c.box = box;
+      } else if (s.choices) {
+        const label = document.createElement("label");
+        label.htmlFor = id;
+        label.textContent = s.label;
+        const box = document.createElement("select");
+        box.id = id;
+        Object.entries(s.choices).forEach(([value, text]) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = text;
+          box.appendChild(option);
+        });
+        box.addEventListener("focus", touch);
+        box.addEventListener("change", () => applySetting(s.name, box.value));
+        row.append(label, box);
+        c.num = box;
+        c.choices = s.choices;
       } else if (s.type === "str") {
         const label = document.createElement("label");
         label.htmlFor = id;

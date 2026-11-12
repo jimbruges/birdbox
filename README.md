@@ -42,14 +42,14 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [Arduino USB-C Hub (8-in-1)](https://store.arduino.cc/products/usb-c-hub-8-in-1) (TPX00241) | Powers the UNO Q through its USB-C power passthrough, and the mic through its data port. Needed because the UNO Q's USB-C port doesn't supply power to USB devices. |
 | FS90R continuous-rotation micro servo | Same body as an SG90, so it fits the printed assembly. Driven directly from D9, no driver board. |
 | Modulino Buzzer + Qwiic cable | Optional. Without it everything works and birdsong is silent. |
-| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line, USB. Needs its **own 5–8.5 V, 3 A supply**. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
+| [RS PRO thermal panel printer](https://uk.rs-online.com/web/p/panel-printers/1785731) (RS 178-5731) | Optional. 58 mm paper, 384 dots per line. Connects to the MCU's serial pins (D0/D1). Needs its **own 5–8.5 V, 3 A supply**, and a MAX3232 level-shifter module if its serial port is RS-232. See [Thermal printer and buttons](#thermal-printer-and-buttons-optional). |
 | 1–2 panel-mount push buttons | Optional, for printing a bird card and the daily summary. |
 | A wooden bird box | A real one. You'll cut a second, larger hole in it for the bird. |
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
 | USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
-| Arduino Cloud account | The app uses 31 Thing variables (24 without the printer). The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
+| Arduino Cloud account | The app uses 32 Thing variables (24 without the printer). The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ## Wiring
 
@@ -61,9 +61,12 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | FS90R red (V+) | **5V** |
 | FS90R brown / black (GND) | **GND** |
 | Modulino Buzzer | **Qwiic** connector |
-| Button 1 (bird card), optional | **D2** and **GND** |
-| Button 2 (daily summary), optional | **D3** and **GND** |
-| Thermal printer, optional | USB to a USB-A port on the hub; power from its own 5–8.5 V, 3 A supply |
+| Button 1, optional (prints the bird card by default) | **D2** and **GND** |
+| Button 2, optional (prints the daily summary by default) | **D3** and **GND** |
+| Thermal printer RX, optional | **D1** (MCU TX), through a MAX3232 if the printer is RS-232 |
+| Thermal printer TX, optional | **D0** (MCU RX), for status replies; optional |
+| Thermal printer GND | **GND** (shared ground for the serial link) |
+| Thermal printer power | Its own 5–8.5 V, 3 A supply |
 | USB-C hub | Hub's USB-C plug → UNO Q's USB-C port; power supply → hub's **power** port |
 | Microphone | Mic → USB-C adapter → USB-C extension cable → hub's USB-C **data** port |
 
@@ -186,6 +189,7 @@ board (`data/settings.json`) and survive restarts. Every variable below is optio
 | `card_song` | Boolean | | `true` | Song contour on the bird card. |
 | `card_description` | Boolean | | `true` | Short encyclopaedia entry on the bird card. |
 | `card_llm` | Boolean | | `true` | Write that entry with the local LLM (otherwise the first sentence of Wikipedia). |
+| `card_credits` | Boolean | | `true` | Print the small picture and text credits on the card. |
 | `summary_hour` | Integer Number | `-1`–`23` | `-1` | Prints the daily summary at this hour. `-1` is off. |
 
 `latitude` and `longitude` of exactly `0.0, 0.0` mean "not set", so the range filter
@@ -310,7 +314,7 @@ box works as before, and every receipt can still be previewed on the
 | Bird card (button 1) | Minimal card | Scroll | Daily summary (button 2) |
 |---|---|---|---|
 | <img src="docs/images/receipts/bird-card.png" width="230" alt="Bird card: headword, scientific name, time, counts, silhouette, encyclopaedia entry and song contour"> | <img src="docs/images/receipts/bird-card-minimal.png" width="230" alt="Minimal bird card with name, time and counts"> | <img src="docs/images/receipts/scroll.png" width="230" alt="Five scroll lines, one per detection"> | <img src="docs/images/receipts/daily-summary-example.png" width="230" alt="Daily register with top species bars and a 24-hour activity chart"> |
-| 40 mm | 15 mm | 3 mm a line | 36 mm (example data) |
+| 37 mm | 15 mm | 3 mm a line | 36 mm (example data) |
 
 ### What it prints
 
@@ -320,7 +324,11 @@ box works as before, and every receipt can still be previewed on the
   - a silhouette from [PhyloPic](https://www.phylopic.org/), beside the text so it
     costs no extra paper, with the artist and licence credited
   - a two-sentence encyclopaedia entry (see below), credited to Wikipedia
-  - the buzzer song for the species, drawn as a pitch contour on a staff.
+  - the song contour: the buzzer song for the species as pitch (1–8 kHz, log scale)
+    against time
+  - a one-line credit for the picture and text, in small type (`card_credits`).
+    Many PhyloPic images are CC BY, which requires credit, so leave it on if you
+    share prints.
 - **Scroll** (`print_each_detection`). One line per detection, about 3 mm each, with
   no gap between lines, so the paper builds into a list of the day's birds.
 - **Daily summary** (button 2, `summary`, or automatically at `summary_hour`). The
@@ -352,15 +360,44 @@ cards then use the first sentence of Wikipedia.
 
 ### Connecting it
 
-- **Printer:** plug its USB into a USB-A port on the hub. It shows up as
-  `/dev/usb/lp0` or `/dev/ttyACM0` and is found automatically; set `printer_device`
-  on the debug page if you have more than one. The printer draws up to 3 A while
-  printing, so power it from its own 5–8.5 V supply, not the board or the hub. The
-  RS-232 port uses ±12 V levels, so connect it through a USB-to-RS-232 adapter, not
-  to the UNO Q's pins.
-- **Buttons:** wire one side of each button to **D2** (bird card) or **D3**
-  (summary), and the other side to **GND**. The sketch uses the internal pull-ups.
-  Unconnected pins never trigger.
+**Printer, on the MCU's serial pins.** The sketch streams each receipt out of
+`Serial1`, the UNO Q's hardware serial port:
+
+| Printer | UNO Q |
+|---|---|
+| RX (data in) | **D1** (TX) |
+| TX (data out), optional | **D0** (RX). Lets the app check the printer is there. |
+| GND | **GND** |
+| Power | Its own 5–8.5 V, 3 A supply, never the board's 5V pin |
+
+- **Logic levels:** the UNO Q's pins are 3.3 V TTL. RS lists this printer's serial
+  port as RS-232 (±12 V). If yours is RS-232, put a MAX3232 level-shifter module
+  between them; connecting RS-232 directly can damage the pins. A TTL-serial printer
+  connects directly.
+- **Speed:** set **Serial speed** on the debug page to match the printer (9600 by
+  default). At 9600 baud a 40 mm card takes about 15 s to send, and the printer
+  feeds slowly while it arrives. At 115200, if the printer supports it, it takes
+  about a second.
+- **Power-up text:** USART1 on D0/D1 is also the MCU's boot console, so a short line
+  of boot text may print when the board restarts. Each receipt starts with a printer
+  reset, so it doesn't affect later prints.
+- **USB printers** work too: set **Connected to** to *USB on the hub*, and the app
+  finds `/dev/usb/lp0` or `/dev/ttyACM0`.
+
+The sketch buffers 4 KB and feeds the UART from `loop()`, so printing never stalls
+the servo or the buzzer.
+
+**Buttons.** Wire each button between a digital pin and **GND**; the sketch uses
+the internal pull-ups, and a pin with nothing connected never triggers. Both the
+pins and what each button does are settings on the debug page's **Buttons** group:
+
+| Button | Default pin | Default action | Actions |
+|---|---|---|---|
+| 1 | **D2** | Print the bird card | bird card, daily summary, scroll line, test the bird (out, song, in), play the last bird's song, nothing |
+| 2 | **D3** | Print the daily summary | same |
+
+Pins D2–D8 and D10–D13 are free. D0/D1 belong to the printer and D9 to the servo.
+Set a button's pin to *Not used* to turn it off.
 
 The plan and the ideas tested along the way are in
 [docs/plan-v2-printer.md](docs/plan-v2-printer.md).
