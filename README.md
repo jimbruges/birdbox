@@ -41,7 +41,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | [`assets/index.html`](assets/index.html) | Debug web UI on port 7000 (mic meter, model candidates, servo calibration, song tester) |
 | [`docs/arduino-cloud.md`](docs/arduino-cloud.md) | Step-by-step Arduino Cloud Thing and dashboard setup |
 | [`docs/project-hub.md`](docs/project-hub.md) | Arduino Project Hub write-up |
-| [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly and servo gear (STL + STEP) |
+| [`hardware/`](hardware/) | 3D-printable outdoor mic holder, linear servo assembly, servo gear and a printed enclosure (STL + STEP) |
 | [`tools/`](tools/) | Arduino Cloud API scripts that create the Thing variables and the Free and Pro dashboards |
 | [`python/receipts.py`](python/receipts.py), [`printer.py`](python/printer.py), [`birdinfo.py`](python/birdinfo.py), [`history.py`](python/history.py) | Stage 2: receipt layouts, printer output, silhouettes and descriptions, and the detection log |
 | [`docs/plan-v2-printer.md`](docs/plan-v2-printer.md) | Stage 2 plan, and what was tested on the way |
@@ -113,6 +113,7 @@ for editing.
 | `birdbox-servo-assembly-print-in-place.stl` | The linear servo assembly, printed in one piece |
 | `birdbox-servo-assembly.step` | The servo assembly as an editable model |
 | `servo-gear.stl` / `.step` | The pinion gear that goes on the servo |
+| `birdbox-enclosure-*.stl` / `.step` | Optional printed bird box (base, front with the servo frame built in, two sides, back plate, roof, printer plate, base cover) in place of a wooden one: see [`hardware/README.md`](hardware/README.md#printed-enclosure) |
 
 ### Outdoor microphone
 
