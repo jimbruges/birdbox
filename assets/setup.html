@@ -1,0 +1,1000 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BirdBox Setup</title>
+<style>
+  :root {
+    --bg: #f5f6f4;
+    --card: #ffffff;
+    --ink: #1d2320;
+    --muted: #6b746f;
+    --line: #dde2dd;
+    --accent: #2f7d5b;
+    --accent-ink: #ffffff;
+    --warn: #b7791f;
+    --bad: #c0392b;
+    --soft: #eef4f0;
+    --wire-servo: #e08a1e;
+    --wire-button: #7b4fb3;
+    --wire-printer: #c0503a;
+    --wire-gnd: #3a3f3c;
+    --wire-power: #d33333;
+    --wire-qwiic: #2f6fd1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12160f;
+      --card: #1b211a;
+      --ink: #e6ece6;
+      --muted: #8c978f;
+      --line: #2c352b;
+      --accent: #5fbf8f;
+      --accent-ink: #0d120c;
+      --warn: #e0a84a;
+      --bad: #ef6b5e;
+      --soft: #223024;
+      --wire-gnd: #b8c2bb;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12160f;
+    --card: #1b211a;
+    --ink: #e6ece6;
+    --muted: #8c978f;
+    --line: #2c352b;
+    --accent: #5fbf8f;
+    --accent-ink: #0d120c;
+    --warn: #e0a84a;
+    --bad: #ef6b5e;
+    --soft: #223024;
+    --wire-gnd: #b8c2bb;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; max-width: 1100px; margin: 0 auto 16px; }
+  h1 { font-size: 20px; margin: 0; flex: 1 1 auto; }
+  h2 { font-size: 22px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 6px; }
+  .layout { display: grid; grid-template-columns: 220px 1fr; gap: 16px; max-width: 1100px; margin: 0 auto; align-items: start; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li button {
+    width: 100%; text-align: left; border: 0; background: none; color: var(--muted);
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; font: inherit; display: flex; gap: 8px; align-items: center;
+  }
+  nav li button:hover { background: var(--soft); }
+  nav li.current button { background: var(--soft); color: var(--ink); font-weight: 600; }
+  nav .num {
+    width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); display: inline-grid;
+    place-items: center; font-size: 12px; flex: none;
+  }
+  nav li.done .num { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; min-width: 0; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .figure { margin: 0 0 16px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #e9edf1; }
+  .figure img { display: block; width: 100%; max-height: 300px; object-fit: contain; }
+  .figure figcaption { font-size: 13px; color: #4b5550; padding: 6px 10px; background: #f3f5f4; }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .row label.k { min-width: 140px; color: var(--muted); }
+  button.b, a.b {
+    font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); cursor: pointer; text-decoration: none; display: inline-block;
+  }
+  button.b:hover, a.b:hover { border-color: var(--accent); }
+  button.b.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.b:disabled { opacity: .5; cursor: default; }
+  input[type=text], input[type=password], input[type=number], select {
+    font: inherit; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); min-width: 0;
+  }
+  input[type=text], input[type=password] { width: min(420px, 100%); }
+  input[type=range] { width: min(320px, 100%); accent-color: var(--accent); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  .pill.ok { color: var(--accent); border-color: var(--accent); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .check { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+  .check .icon { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; border: 1px solid var(--line); }
+  .check.ok .icon { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .check.warn .icon { border-color: var(--warn); color: var(--warn); }
+  .check.bad .icon { border-color: var(--bad); color: var(--bad); }
+  .tip { background: var(--soft); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .tip.warn { border-left: 3px solid var(--warn); }
+  .tip ul, .tip ol { margin: 4px 0; padding-left: 20px; }
+  .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
+  .choice { text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; }
+  .choice:hover { border-color: var(--accent); }
+  .choice.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .choice b { display: block; margin-bottom: 2px; }
+  .choice span { color: var(--muted); font-size: 13px; }
+  .substep { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 4px; }
+  .substep h3 .n { color: var(--muted); font-weight: 400; margin-right: 6px; }
+  .footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .meter { height: 10px; border-radius: 5px; background: var(--soft); overflow: hidden; width: min(320px, 100%); }
+  .meter > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .big { font-size: 28px; font-weight: 600; }
+  .wiring { width: 100%; height: auto; display: block; }
+  .wiring text { font: 12px system-ui, sans-serif; fill: var(--ink); }
+  .wiring .muted { fill: var(--muted); }
+  table.pins { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 14px; }
+  table.pins td, table.pins th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.pins th { color: var(--muted); font-weight: 500; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--bad); color: #fff; }
+  .off { max-width: 640px; margin: 40px auto; }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    nav ol { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+    nav li button { white-space: nowrap; }
+    nav li button .label { display: none; }
+    nav li.current button .label { display: inline; }
+    .card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐦 BirdBox setup</h1>
+  <span class="pill" id="conn">connecting…</span>
+  <a class="b" href="/">Debug page</a>
+</header>
+
+<div class="card off" id="off" hidden>
+  <h2>The debug UI is switched off</h2>
+  <p>The setup wizard runs on the debug UI, which is off on this board. Turn on the
+  <b>Debug UI</b> switch (<code>debug_ui</code>) on your Arduino Cloud dashboard, then reload this page.</p>
+</div>
+
+<div class="layout" id="app" hidden>
+  <nav class="card" style="padding:10px"><ol id="steps"></ol></nav>
+  <main class="card" id="main"></main>
+</div>
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // --- Helpers -------------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  let toastTimer;
+  function toast(text, isError) {
+    const t = $("toast");
+    t.textContent = text;
+    t.className = "show" + (isError ? " err" : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ""; }, isError ? 5000 : 2500);
+  }
+  async function api(path, body) {
+    const opts = body === undefined ? {} : {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    };
+    const res = await fetch(path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (_) { /* not JSON */ }
+    if (!res.ok) throw new Error(data && data.detail ? data.detail : `HTTP ${res.status}`);
+    return data;
+  }
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else if (k === "html") el.innerHTML = v;
+      else if (k === "class") el.className = v;
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of children.flat()) {
+      if (c == null || c === false) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("birdbox-setup-" + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem("birdbox-setup-" + k, JSON.stringify(v)); } catch (_) { /* private mode */ } },
+  };
+
+  // --- State ---------------------------------------------------------------
+  let status = null;      // /api/status
+  let wizard = null;      // /api/wizard
+  const S = {};           // settings by name: {value, choices, ...}
+  let current = store.get("step", 0);
+  const done = new Set(store.get("done", []));
+  let timers = [];        // cleared when the step changes
+
+  function every(ms, fn) { const id = setInterval(fn, ms); timers.push(id); fn(); return id; }
+  function clearTimers() { timers.forEach(clearInterval); timers = []; }
+
+  async function refresh() {
+    status = await api("/api/status");
+    for (const s of status.settings) S[s.name] = s;
+    return status;
+  }
+  async function refreshWizard() { wizard = await api("/api/wizard"); return wizard; }
+  const val = (name) => (S[name] ? S[name].value : undefined);
+
+  async function set(name, value, quiet) {
+    try {
+      const r = await api("/api/setting", { name, value });
+      if (S[name]) S[name].value = r.value;
+      if (!quiet) toast(`${S[name] ? S[name].label : name}: ${fmtValue(name, r.value)}`);
+      return r.value;
+    } catch (err) { toast(err.message, true); throw err; }
+  }
+  async function setMany(values) {
+    for (const [k, v] of Object.entries(values)) await set(k, v, true);
+    toast("Saved");
+  }
+  function fmtValue(name, v) {
+    const c = S[name] && S[name].choices;
+    if (c && c[String(v)]) return c[String(v)];
+    if (typeof v === "boolean") return v ? "on" : "off";
+    return `${v}${S[name] && S[name].unit ? " " + S[name].unit : ""}`;
+  }
+  const servo = (command) => api("/api/servo", { command }).catch((e) => toast(e.message, true));
+  const printTest = (test) => api("/api/printer_test", { test }).then(() => toast("Sent to the printer"))
+    .catch((e) => toast(e.message, true));
+  const printReceipt = (kind) => api("/api/print", { kind }).then(() => toast(`Printing the ${kind}`))
+    .catch((e) => toast(e.message, true));
+
+  // --- Small UI builders ---------------------------------------------------
+  function figure(src, caption) {
+    return h("figure", { class: "figure" }, h("img", { src, alt: caption, loading: "lazy" }), h("figcaption", {}, caption));
+  }
+  function check(state, title, detail) {
+    const icon = { ok: "✓", warn: "!", bad: "✕" }[state] || "…";
+    return h("div", { class: `check ${state}` }, h("div", { class: "icon" }, icon),
+      h("div", {}, h("b", {}, title), detail ? h("div", { class: "lead", style: "margin:0" }, detail) : null));
+  }
+  function tip(content, warn) { return h("div", { class: "tip" + (warn ? " warn" : "") }, content); }
+  function btn(text, onclick, primary) { return h("button", { class: "b" + (primary ? " primary" : ""), type: "button", onclick }, text); }
+
+  // A control for one setting, built from its schema.
+  function control(name, opts = {}) {
+    const s = S[name];
+    if (!s) return null;
+    const label = h("label", { class: "k", for: "c-" + name }, opts.label || s.label);
+    let input;
+    if (s.type === "bool") {
+      input = h("input", { type: "checkbox", id: "c-" + name });
+      input.checked = !!s.value;
+      input.addEventListener("change", () => set(name, input.checked).then(() => opts.onchange && opts.onchange(input.checked))
+        .catch(() => { input.checked = !!S[name].value; }));
+      return h("div", { class: "row" }, input, h("label", { for: "c-" + name }, opts.label || s.label));
+    }
+    if (s.choices) {
+      input = h("select", { id: "c-" + name });
+      for (const [v, text] of Object.entries(s.choices)) {
+        const o = h("option", { value: v }, text);
+        if (String(s.value) === v) o.selected = true;
+        input.append(o);
+      }
+      input.addEventListener("change", () => set(name, input.value).then((v) => opts.onchange && opts.onchange(v))
+        .catch(() => { input.value = String(S[name].value); }));   // refused, e.g. a pin already in use
+      return h("div", { class: "row" }, label, input);
+    }
+    if (s.type === "str") {
+      input = h("input", { type: "text", id: "c-" + name, value: s.value || "" });
+      input.addEventListener("change", () => set(name, input.value).then((v) => opts.onchange && opts.onchange(v))
+        .catch(() => { input.value = S[name].value || ""; }));
+      return h("div", { class: "row" }, label, input);
+    }
+    // Numbers: a slider when the range is small enough, else a number box.
+    const out = h("span", { class: "pill" }, fmtValue(name, s.value));
+    const min = opts.min != null ? opts.min : s.min, max = opts.max != null ? opts.max : s.max;
+    const useRange = min != null && max != null && !opts.number;
+    input = h("input", { type: useRange ? "range" : "number", id: "c-" + name, min, max, step: s.step || (s.type === "float" ? "any" : 1), value: s.value });
+    input.addEventListener("input", () => { out.textContent = fmtValue(name, input.value); });
+    input.addEventListener("change", () => set(name, input.value, true).then((v) => {
+      out.textContent = fmtValue(name, v); opts.onchange && opts.onchange(v);
+    }).catch(() => { input.value = S[name].value; out.textContent = fmtValue(name, S[name].value); }));
+    return h("div", { class: "row" }, label, input, out);
+  }
+
+  // Yes / no / other answers to "did it work?", each with what to do next.
+  function ask(question, answers) {
+    const box = h("div", {});
+    const result = h("div", {});
+    box.append(h("div", { class: "row" }, h("b", {}, question)),
+      h("div", { class: "row" }, answers.map((a) => btn(a.text, async () => {
+        result.replaceChildren();
+        const r = await a.act();
+        if (r) result.append(r);
+      }, a.primary))), result);
+    return box;
+  }
+
+  // The printer chosen in the wizard before, or a good guess from the settings.
+  function printerModel() {
+    const guess = !val("printer_enabled") ? "none" : val("printer_port") === "usb" ? "usb"
+      : val("printer_raster") === "esc_k" ? "rs_pro" : "csn_a2";
+    return store.get("printer", guess);
+  }
+
+  // The core numbers A0-A5 as pins 14-19 and SDA/SCL as 20/21.
+  function pinName(p) {
+    p = Number(p);
+    if (p >= 14 && p <= 19) return "A" + (p - 14);
+    if (p === 20) return "SDA";
+    if (p === 21) return "SCL";
+    return "D" + p;
+  }
+
+  // --- Wiring diagram, drawn from the current settings ---------------------
+  // UNO Q header: D0-D13 along one edge, SCL/SDA beyond D13, power on the other edge.
+  function wiringConnections() {
+    const conns = [];
+    const sp = val("servo_pin");
+    // The printed enclosure's CSN-A2 takes the board's 5V, so the servo moves to 3V3.
+    const csn = val("printer_enabled") && val("printer_port") === "serial" && printerModel() === "csn_a2";
+    conns.push({ pin: pinName(sp), what: "Servo signal (orange)", color: "var(--wire-servo)" });
+    conns.push({ pin: csn ? "3V3" : "5V", what: "Servo V+ (red)", color: "var(--wire-power)" });
+    conns.push({ pin: "GND", what: "Servo GND (brown)", color: "var(--wire-gnd)" });
+    const buttons = [1, 2, 3, 4].filter((n) => val(`button${n}_pin`) >= 0);
+    for (const n of buttons) {
+      conns.push({ pin: pinName(val(`button${n}_pin`)), what: `Button ${n}`, color: "var(--wire-button)" });
+    }
+    if (buttons.length) {
+      conns.push({ pin: "GND", what: `Buttons' other legs, joined together (${buttons.length === 1 ? "one wire" : "one shared wire"})`, color: "var(--wire-gnd)" });
+    }
+    if (val("printer_enabled") && val("printer_port") === "serial") {
+      const d01 = val("printer_uart") === 1;
+      conns.push({ pin: d01 ? "D1" : "SCL", what: "Printer RX (data in)", color: "var(--wire-printer)" });
+      conns.push({ pin: d01 ? "D0" : "SDA", what: "Printer TX (optional, status)", color: "var(--wire-printer)", optional: true });
+      conns.push({ pin: "GND", what: "Printer GND", color: "var(--wire-gnd)" });
+      if (csn) conns.push({ pin: "5V", what: "Printer power (VH)", color: "var(--wire-power)" });
+      const busy = val("printer_busy_pin");
+      if (busy >= 0) conns.push({ pin: pinName(busy), what: "Printer busy / CTS", color: "var(--wire-printer)" });
+    } else if (val("printer_enabled") && val("printer_port") === "usb") {
+      conns.push({ pin: "USB", what: "Printer on the hub", color: "var(--wire-printer)" });
+    }
+    conns.push({ pin: "Qwiic", what: "Modulino Buzzer", color: "var(--wire-qwiic)" });
+    return conns;
+  }
+
+  function wiringDiagram() {
+    const conns = wiringConnections();
+    const top = ["SCL", "SDA", "AREF", "GND", "D13", "D12", "D11", "D10", "D9", "D8", "D7", "D6", "D5", "D4", "D3", "D2", "D1", "D0"];
+    const bottom = ["IOREF", "RESET", "3V3", "5V", "GND", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5"];
+    const W = 720, pitch = 34, x0 = 60;
+    const used = {};
+    conns.forEach((c) => { (used[c.pin] = used[c.pin] || []).push(c); });
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} 250`);
+    svg.setAttribute("class", "wiring");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "UNO Q header with the pins BirdBox uses highlighted");
+    const el = (name, attrs, text) => {
+      const e = document.createElementNS(ns, name);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      if (text != null) e.textContent = text;
+      svg.appendChild(e);
+      return e;
+    };
+    el("rect", { x: 40, y: 60, width: 640, height: 130, rx: 12, fill: "#1f8a8a", opacity: 0.9 });
+    el("text", { x: 360, y: 130, "text-anchor": "middle", fill: "#fff", style: "font-size:16px;font-weight:600;fill:#fff" }, "Arduino UNO Q");
+    el("text", { x: 360, y: 150, "text-anchor": "middle", style: "font-size:12px;fill:#d7efee" }, "component side up, USB-C on the left");
+    const pinRow = (names, y, labelY) => names.forEach((name, i) => {
+      const x = x0 + i * pitch * (name.length && names === bottom ? 1.25 : 1);
+      const hit = used[name];
+      el("rect", { x: x - 9, y: y - 9, width: 18, height: 18, rx: 3, fill: hit ? hit[0].color : "#263238", stroke: "#0b1416" });
+      el("text", { x, y: labelY, "text-anchor": "middle", class: hit ? "" : "muted", style: "font-size:11px" }, name);
+    });
+    pinRow(top, 75, 52);
+    pinRow(bottom, 175, 210);
+    // Qwiic socket on the right edge.
+    el("rect", { x: 650, y: 110, width: 24, height: 20, rx: 3, fill: used.Qwiic ? "var(--wire-qwiic)" : "#263238" });
+    el("text", { x: 644, y: 124, "text-anchor": "end", style: "font-size:11px;fill:#fff" }, "Qwiic");
+    el("text", { x: 40, y: 240, class: "muted", style: "font-size:11px" },
+      "Highlighted pins are in use. Pin order is the UNO R3 layout; check the labels printed next to the header on your board.");
+    const table = h("table", { class: "pins" }, h("tr", {}, h("th", {}, "Pin"), h("th", {}, "Connects to")),
+      conns.map((c) => h("tr", {}, h("td", {}, h("span", { class: "swatch", style: `background:${c.color}` }), c.pin),
+        h("td", {}, c.what))));
+    return h("div", {}, svg, table);
+  }
+
+  // --- Steps ---------------------------------------------------------------
+  const steps = [
+    { id: "welcome", title: "Welcome", render: stepWelcome },
+    { id: "cloud", title: "Arduino Cloud", render: stepCloud },
+    { id: "board", title: "Board and power", render: stepBoard },
+    { id: "listen", title: "Listening", render: stepListen },
+    { id: "buzzer", title: "Buzzer", render: stepBuzzer },
+    { id: "servo", title: "Servo and bird", render: stepServo },
+    { id: "buttons", title: "Buttons", render: stepButtons },
+    { id: "printer", title: "Printer", render: stepPrinter },
+    { id: "location", title: "Location", render: stepLocation },
+    { id: "done", title: "Finished", render: stepDone },
+  ];
+
+  function stepWelcome(main) {
+    main.append(
+      h("h2", {}, "Set up your BirdBox"),
+      h("p", { class: "lead" }, "This walks you through connecting the board to Arduino Cloud, checking every part is wired to the pin the app expects, and tuning the servo and printer. Each step tests the real hardware, so keep the box open and within reach."),
+      figure("setup/hero-front-right.png", "The printed BirdBox: bird hole at the front, printer and buttons in the base"),
+      h("h3", {}, "You'll need"),
+      h("ul", {},
+        h("li", {}, "The UNO Q in the box, powered through the Arduino USB-C hub, and on your Wi-Fi"),
+        h("li", {}, "The FS90R servo and bird on the front panel's rail, and the Modulino Buzzer on its Qwiic cable"),
+        h("li", {}, "Optional: up to four push buttons, a thermal printer (CSN-A2 or RS PRO) with its own power, and a USB microphone"),
+        h("li", {}, "Your Arduino account. An API key lets the wizard create the Cloud variables and dashboards for you."),
+      ),
+      h("div", { class: "figures" },
+        figure("setup/inside.png", "Inside: UNO Q on the back plate, servo behind the hole, printer in the base"),
+        figure("setup/exploded.png", "The panels and the parts each one carries")),
+      tip(["Every step saves as you go, and you can skip any part you don't have. Come back to this page any time from the ",
+        h("a", { href: "/" }, "debug page"), "."]),
+    );
+  }
+
+  async function stepCloud(main) {
+    main.append(h("h2", {}, "Arduino Cloud"),
+      h("p", { class: "lead" }, "BirdBox reports each bird to Arduino Cloud and takes its settings from a dashboard. The board keeps working without it, and every setting can also be changed here."),
+      figure("setup/cloud-dashboard.png", "The BirdBox Pro dashboard"));
+    const body = h("div", {});
+    main.append(body);
+
+    async function draw() {
+      body.replaceChildren(h("p", { class: "lead" }, "Checking…"));
+      try { await refreshWizard(); } catch (e) { body.replaceChildren(check("bad", "Couldn't check", e.message)); return; }
+      const b = wizard.board;
+      body.replaceChildren();
+
+      // 1. The board's own connection.
+      const s1 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "1"), "Connect the board"));
+      if (b.reachable && b.provisioned && b.connected) {
+        s1.append(check("ok", "The board is connected to Arduino Cloud", `Thing ${b.thing_id}`));
+      } else {
+        s1.append(check(b.reachable && b.provisioned ? "warn" : "bad",
+          b.reachable && b.provisioned ? `Connected, but the link is ${b.state || "not ready"}` : "The board isn't connected to Arduino Cloud yet",
+          b.error || ""));
+        s1.append(tip(h("ol", {},
+          h("li", {}, "Open Arduino App Lab connected to this board."),
+          h("li", {}, ["Go to ", h("b", {}, "Settings → Arduino Cloud → Connect device"), "."]),
+          h("li", {}, "Sign in, choose the Cloud space, and wait for it to show Connected."),
+          h("li", {}, ["At ", h("a", { href: "https://app.arduino.cc/things", target: "_blank", rel: "noopener" }, "app.arduino.cc/things"),
+            ", check the board is the Associated Device of a Thing. That's where the variables go."]),
+          h("li", {}, "Restart the app, then come back here."))));
+        s1.append(h("div", { class: "row" }, btn("Check again", draw)));
+      }
+      body.append(s1);
+
+      // 2. The API key.
+      const s2 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "2"), "API key (optional)"),
+        h("p", { class: "lead" }, "With an API key the wizard creates the Thing's variables and dashboards for you, and a BirdBox can play another unit's birds. Without one, add the variables by hand as in docs/arduino-cloud.md."));
+      if (wizard.credentials) {
+        s2.append(check("ok", "An API key is saved on the board"));
+      }
+      const id = h("input", { type: "text", placeholder: "Client ID", autocomplete: "off" });
+      const secret = h("input", { type: "password", placeholder: "Client Secret", autocomplete: "off" });
+      const org = h("input", { type: "text", placeholder: "Space ID (blank for your personal space)", autocomplete: "off" });
+      s2.append(
+        h("ol", {}, h("li", {}, ["Create a key at ", h("a", { href: "https://app.arduino.cc/api-keys", target: "_blank", rel: "noopener" }, "app.arduino.cc/api-keys"), "."]),
+          h("li", {}, "Copy the Client ID and Client Secret into the boxes below. The secret is only shown once.")),
+        h("div", { class: "row" }, h("label", { class: "k" }, "Client ID"), id),
+        h("div", { class: "row" }, h("label", { class: "k" }, "Client Secret"), secret),
+        h("div", { class: "row" }, h("label", { class: "k" }, "Space ID"), org),
+        h("div", { class: "row" }, btn(wizard.credentials ? "Replace the key" : "Save the key", async () => {
+          try {
+            await api("/api/wizard/credentials", { client_id: id.value, client_secret: secret.value, org_id: org.value });
+            secret.value = "";
+            toast("API key checked and saved");
+            draw();
+          } catch (e) { toast(e.message, true); }
+        }, !wizard.credentials)),
+        tip("The key is checked with Arduino Cloud, then saved only on this board, readable only by the app. This page talks to the board over your local network without encryption, so do this on your own network.", true));
+      body.append(s2);
+
+      // 3. Variables and dashboards.
+      const s3 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "3"), "Variables and dashboards"));
+      if (!wizard.credentials || !b.thing_id) {
+        s3.append(h("p", { class: "lead" }, !b.thing_id ? "Connect the board to a Thing first." : "Save an API key first, or follow docs/arduino-cloud.md to add the variables by hand."));
+      } else {
+        let free = store.get("free", false);
+        const plan = h("div", {});
+        const freeBox = h("div", { class: "choices" },
+          h("button", { type: "button", class: "choice" + (free ? " on" : ""), onclick: () => { free = true; store.set("free", true); draw(); } },
+            h("b", {}, "Free plan"), h("span", {}, "5 variables: last bird, today's count, two switches and the debug UI")),
+          h("button", { type: "button", class: "choice" + (!free ? " on" : ""), onclick: () => { free = false; store.set("free", false); draw(); } },
+            h("b", {}, "Maker plan or above"), h("span", {}, "All 33 variables and the Pro dashboard. Needed to receive another BirdBox's birds.")));
+        const dash = h("input", { type: "checkbox", id: "dash", checked: true });
+        s3.append(freeBox, plan,
+          h("div", { class: "row" }, dash, h("label", { for: "dash" }, `Also create this Thing's ${free ? "BirdBox Free dashboard" : "BirdBox Free and Pro dashboards"}, named after it`)),
+          h("p", { class: "lead" }, "Dashboards showing another Thing's variables, such as another BirdBox's, are never changed."),
+          h("div", { class: "row" }, btn("Create them", async (ev) => {
+            ev.target.disabled = true;
+            try {
+              const r = await api("/api/wizard/cloud_apply", { thing: b.thing_id, free, dashboards: dash.checked });
+              toast(`${r.steps.length} change(s) made`);
+              draw();
+            } catch (e) { toast(e.message, true); ev.target.disabled = false; }
+          }, true), h("a", { class: "b", href: "https://app.arduino.cc/dashboards", target: "_blank", rel: "noopener" }, "Open dashboards")));
+        api(`/api/wizard/cloud_plan?thing=${encodeURIComponent(b.thing_id)}&free=${free}`).then((r) => {
+          plan.replaceChildren(r.steps.length === 0
+            ? check("ok", "The Thing has every variable it needs")
+            : check("warn", `${r.steps.length} change(s) to make`, r.steps.map((st) => `${st.action} ${st.name}`).join(", ")));
+        }).catch((e) => plan.replaceChildren(check("bad", "Couldn't read the Thing", e.message)));
+      }
+      body.append(s3);
+    }
+    await draw();
+  }
+
+  async function stepBoard(main) {
+    await refreshWizard();
+    main.append(h("h2", {}, "Board and power"),
+      h("p", { class: "lead" }, "The UNO Q sits on the back plate, and the hub under the roof powers it and the microphone. The UNO Q's own USB-C port doesn't power USB devices, so everything goes through the hub."),
+      h("div", { class: "figures" },
+        figure("setup/back-plate-inside.png", "Back plate: UNO Q on standoffs, the spool for spare mic cable below"),
+        figure("setup/roof-underside.png", "Under the roof: the hub on its two cable-tie stubs")),
+      wizard.sketch ? check("ok", "The sketch on the MCU is running", "The app is talking to the servo, buzzer, buttons and printer side of the board.")
+        : check("bad", "The sketch isn't answering", "Restart the app. If it stays like this, check the app logs for a sketch build error."),
+      h("h3", {}, "Your wiring"),
+      h("p", { class: "lead" }, "This is what the app expects with the current settings. It updates as you change pins in the next steps."),
+      wiringDiagram(),
+      tip(["Wire with the board unpowered. The UNO Q's pins are ", h("b", {}, "3.3 V"), ": never connect a 5 V signal straight to a pin."], true));
+  }
+
+  async function stepListen(main) {
+    main.append(h("h2", {}, "Listening"),
+      h("p", { class: "lead" }, "A BirdBox listens with its own microphone, plays the birds another BirdBox hears through Arduino Cloud, or both: its own birds from the mic, plus the other unit's birds kept separate, with their own cards and summary."));
+    const mode = val("listen_mode");
+    const rerender = () => { clearTimers(); main.replaceChildren(); stepListen(main); };
+    const choose = (m) => set("listen_mode", m).then(rerender);
+    main.append(h("div", { class: "choices" },
+      h("button", { type: "button", class: "choice" + (mode === "mic" ? " on" : ""), onclick: () => choose("mic") },
+        h("b", {}, "This unit's microphone"), h("span", {}, "A USB mic outside, on the hub's USB-C data port")),
+      h("button", { type: "button", class: "choice" + (mode === "cloud" ? " on" : ""), onclick: () => choose("cloud") },
+        h("b", {}, "Another BirdBox"), h("span", {}, "No microphone: play, print and log the birds another unit hears")),
+      h("button", { type: "button", class: "choice" + (mode === "both" ? " on" : ""), onclick: () => choose("both") },
+        h("b", {}, "Both"), h("span", {}, "The mic for this unit's birds, and another unit's birds on buttons 3 and 4"))));
+
+    if (mode === "mic" || mode === "both") {
+      const sec = h("div", { class: "substep" }, h("h3", {}, "This unit's microphone"));
+      sec.append(figure("setup/mic-house.jpg", "The mic in its printed outdoor holder"));
+      const dev = h("div", {}), meter = h("div", { class: "meter" }, h("div", {})), db = h("span", { class: "pill" }, "–");
+      sec.append(dev, h("div", { class: "row" }, h("label", { class: "k" }, "Sound level"), meter, db),
+        h("p", { class: "lead" }, "Clap or talk near the mic: the level should jump. A steady level around −90 dB means no sound is reaching it."));
+      main.append(sec);
+      every(700, async () => {
+        try {
+          const st = await api("/api/status");
+          const m = st.mic || {};
+          dev.replaceChildren(m.device ? check("ok", "Microphone open", m.device)
+            : check("bad", "No microphone found", "Plug the mic into the hub's USB-C data port (not the UNO Q). The app keeps looking every 10 seconds."));
+          const rms = m.level && m.level.rms_dbfs;
+          db.textContent = rms == null ? "–" : `${rms.toFixed(0)} dB`;
+          meter.firstChild.style.width = rms == null ? "0%" : `${Math.max(0, Math.min(100, (rms + 80) / 80 * 100))}%`;
+        } catch (_) { /* next tick */ }
+      });
+    }
+
+    if (mode === "cloud" || mode === "both") {
+      await refreshWizard();
+      const sec = h("div", { class: "substep" }, h("h3", {}, "Which BirdBox should this one follow?"));
+      main.append(sec);
+      if (!wizard.credentials) {
+        sec.append(check("warn", "This needs an Arduino Cloud API key", "Add one in the Arduino Cloud step, then come back."));
+      }
+      const pick = h("div", {});
+      sec.append(pick, control("source_thing_id", { label: "Or paste its Thing ID" }),
+        mode === "both" ? control("cloud_birds_act") : null,
+        tip(mode === "both"
+          ? "The other unit's birds are logged apart from this unit's. Set buttons 3 and 4 to print its card and summary in the Buttons step. They arrive within about 5 seconds."
+          : "The other unit has to publish its last bird to its Thing (the full variable set, Maker plan). Birds arrive here within about 5 seconds."));
+      if (wizard.credentials) {
+        api("/api/wizard/things").then((r) => {
+          const own = wizard.board && wizard.board.thing_id;
+          const others = r.things.filter((t) => t.id !== own);
+          pick.replaceChildren(others.length ? h("div", { class: "choices" }, others.map((t) =>
+            h("button", { type: "button", class: "choice" + (val("source_thing_id") === t.id ? " on" : ""),
+              onclick: () => set("source_thing_id", t.id).then(rerender) },
+              h("b", {}, t.name), h("span", {}, t.id))))
+            : h("p", { class: "lead" }, "No other Things in this Cloud space."));
+        }).catch((e) => pick.replaceChildren(check("bad", "Couldn't list your Things", e.message)));
+      }
+      const live = h("div", {});
+      sec.append(live);
+      every(3000, async () => {
+        try {
+          const src = (await api("/api/status")).source || {};
+          live.replaceChildren(src.last_error ? check("bad", "Can't read the other unit", src.last_error)
+            : src.running ? check("ok", `Following ${src.thing_name || src.thing_id}`, `${src.received} bird(s) received` +
+              (src.sender_last && src.sender_last.species ? `; its last bird: ${src.sender_last.species}` : ""))
+              : check("warn", "Not following anyone yet", "Choose a BirdBox above."));
+        } catch (_) { /* next tick */ }
+      });
+    }
+  }
+
+  async function stepBuzzer(main) {
+    await refreshWizard();
+    main.append(h("h2", {}, "Buzzer"),
+      h("p", { class: "lead" }, "The Modulino Buzzer plays each species' song. It sits on the right side panel and plugs into the UNO Q's Qwiic socket."),
+      figure("setup/right-side-inside.png", "Right side from inside: the buzzer on its standoffs behind the grille"),
+      wizard.buzzer_found ? check("ok", "Modulino Buzzer found")
+        : check("bad", "No buzzer found", "Check the Qwiic cable is pushed fully into the buzzer and the UNO Q, then restart the app: the sketch looks for it at start-up."),
+      h("div", { class: "row" }, btn("Play a robin", () => api("/api/birdsong", { scientific: "Erithacus rubecula" })
+        .then(() => toast("Playing")).catch((e) => toast(e.message, true)), true),
+        btn("Play a blackbird", () => api("/api/birdsong", { scientific: "Turdus merula" }).catch((e) => toast(e.message, true)))),
+      control("birdsong_enabled", { label: "Sing when a bird is heard" }));
+  }
+
+  function stepServo(main) {
+    main.append(h("h2", {}, "Servo and bird"),
+      h("p", { class: "lead" }, "The FS90R pushes the bird out of the hole along the printed rail. It turns continuously, so the app times each move rather than setting a position: these steps find the right timing for your rail."),
+      h("div", { class: "figures" },
+        figure("setup/front-panel-inside.png", "Front panel from behind: the servo frame and rack"),
+        figure("setup/servo-robin.jpg", "The bird on the end of the rack")));
+
+    const s1 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "1"), "Which pin is the signal wire on?"),
+      h("p", { class: "lead" }, val("printer_enabled") && val("printer_port") === "serial" && printerModel() === "csn_a2"
+        ? "The servo has three wires: orange (signal) to a pin, red to 3V3 (the printer has the 5V pin) and brown to GND. D9 is the usual pin. On 3V3 it's a little slower, which the travel time below allows for."
+        : "The servo has three wires: orange (signal) to a pin, red to 5V and brown to GND. D9 is the usual pin."),
+      control("servo_pin"));
+    const s2 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "2"), "Which way does it go?"),
+      h("p", { class: "lead" }, "Press the button and watch the bird."),
+      h("div", { class: "row" }, btn("Move the bird out", () => servo("out"), true), btn("Back in", () => servo("in")), btn("Stop", () => servo("stop"))),
+      ask("What did the bird do?", [
+        { text: "Came out", primary: true, act: () => check("ok", "Direction is right") },
+        { text: "Went further in", act: async () => {
+          await set("servo_reverse", !val("servo_reverse"));
+          return check("warn", "Direction reversed", "Press “Move the bird out” again to check.");
+        } },
+        { text: "Didn't move", act: () => tip(h("ul", {},
+          h("li", {}, "Check the orange wire is on the pin chosen above, red on 5V and brown on GND."),
+          h("li", {}, "Check the gear meshes with the rack and the rack slides freely."),
+          h("li", {}, "Is the bird already at the end of the rail? Try “Back in” first."),
+          h("li", {}, "If it hums but doesn't turn, the rack may be catching: clear any support material.")), true) },
+      ]));
+    const s3 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "3"), "Travel time"),
+      h("p", { class: "lead" }, "How long the servo drives from one end of the rail to the other at full speed. Start at the default, then adjust until the bird reaches the end each way without straining against it for long."),
+      control("servo_speed"),
+      control("travel_ms", { max: 1500 }),
+      control("home_overrun", { max: 200 }),
+      h("div", { class: "row" }, btn("Out", () => servo("out"), true), btn("In", () => servo("in"))),
+      tip(h("ul", {},
+        h("li", {}, "Stops short of the end: increase the travel time."),
+        h("li", {}, "Hits the end and keeps buzzing: decrease it, or reduce the overrun."),
+        h("li", {}, "Too fast or noisy: lower the speed. Travel time is scaled with speed automatically."))));
+    const s4 = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "4"), "Holding out"),
+      control("hold_ms", { max: 10000 }),
+      control("hold_for_song"),
+      h("div", { class: "row" }, btn("Test the whole thing: out, sing, in", () => servo("test"), true)));
+    main.append(s1, s2, s3, s4);
+  }
+
+  function stepButtons(main) {
+    main.append(h("h2", {}, "Buttons"),
+      h("p", { class: "lead" }, "Push buttons in the base print a bird card, the daily summary and more. Each one goes from a pin to GND. The enclosure has holes for four: buttons 1 and 2 are for this unit's birds, and the optional buttons 3 and 4 print another BirdBox's card and summary when listening is set to Both."),
+      h("div", { class: "figures" },
+        figure("setup/base-tray.png", "Base tray: buttons along the front, printer behind"),
+        figure("setup/underside.png", "From below: the buttons and the paper slot")));
+    const saved = {};   // actions to restore after a scan
+    const ALL = [1, 2, 3, 4];
+    const both = val("listen_mode") === "both";
+    for (const n of ALL) {
+      const optional = n > 2;
+      const sub = h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, String(n)),
+        `Button ${n}`, optional ? h("span", { class: "pill", style: "margin-left:8px" }, "optional: the other BirdBox") : null));
+      if (optional && !both) {
+        sub.append(tip("For the other BirdBox's birds. Set Listening to Both first, or leave this button out.", false));
+      }
+      const found = h("div", {});
+      let scanning = null;
+      const pinNow = () => val(`button${n}_pin`);
+      const status = h("div", {}, pinNow() >= 0 ? check("ok", `Button ${n} is set to ${pinName(pinNow())}`) : check("warn", `Button ${n} isn't used`));
+      const stopScan = async () => {
+        if (scanning) { clearInterval(scanning); timers = timers.filter((t) => t !== scanning); scanning = null; }
+        for (const k of ALL) if (saved[k] != null) { await set(`button${k}_action`, saved[k], true); delete saved[k]; }
+      };
+      const scanBtn = btn("Find it: press and hold the button", async () => {
+        if (scanning) { await stopScan(); scanBtn.textContent = "Find it: press and hold the button"; return; }
+        // Pressing a button that's already set would run its action (and print), so pause both.
+        for (const k of ALL) { saved[k] = val(`button${k}_action`); await set(`button${k}_action`, "none", true); }
+        scanBtn.textContent = "Stop looking";
+        found.replaceChildren(h("p", { class: "lead" }, `Now press and hold button ${n}…`));
+        scanning = every(300, async () => {
+          try {
+            const r = await api("/api/wizard/pins");
+            const others = ALL.filter((k) => k !== n).map((k) => val(`button${k}_pin`));
+            const pins = r.low.filter((p) => !others.includes(p));
+            if (pins.length === 1) {
+              const p = pins[0];
+              await stopScan();
+              scanBtn.textContent = "Find it: press and hold the button";
+              found.replaceChildren(check("ok", `Found it on ${pinName(p)}`), h("div", { class: "row" },
+                btn(`Use ${pinName(p)} for button ${n}`, async () => {
+                  try { await set(`button${n}_pin`, p); } catch (_) { return; }
+                  status.replaceChildren(check("ok", `Button ${n} is set to ${pinName(p)}`));
+                  found.replaceChildren();
+                }, true)));
+            } else if (pins.length > 1) {
+              found.replaceChildren(check("warn", `More than one pin is low: ${pins.map(pinName).join(", ")}`,
+                "Something else is connecting those pins to GND. Release the button and check the wiring."));
+            }
+          } catch (e) { found.replaceChildren(check("bad", "Couldn't read the pins", e.message)); }
+        });
+      }, true);
+      sub.append(status, h("div", { class: "row" }, scanBtn, btn("Not used", async () => {
+        await stopScan(); await set(`button${n}_pin`, -1);
+        status.replaceChildren(check("warn", `Button ${n} isn't used`));
+      })), found, control(`button${n}_action`), control(`button${n}_pin`, { label: "Or choose the pin" }));
+      main.append(sub);
+    }
+    if (!val("printer_enabled")) {
+      main.append(tip("Printing is off, so the print actions do nothing. Choose “Test the bird” or “Play the last bird's song” instead, or set up a printer.", true));
+    }
+    main.append(tip("Buttons can go on any free digital pin (D2–D13) or on the analog pins A0–A5, whichever makes the wiring easier. The wizard finds either kind."));
+    main.append(tip("Wire one leg of each button to its pin, and join the other legs together with one wire to a GND pin. If pressing a button finds nothing, check both. Panel buttons with three tags have NO and NC: use COM and NO."));
+  }
+
+  // Printer presets: what each printer needs.
+  const PRINTERS = {
+    csn_a2: { title: "CSN-A2 panel printer", sub: "On the serial pins. The printed enclosure is made for it.",
+      values: { printer_enabled: true, printer_port: "serial", printer_raster: "gs_v0", printer_baud: 9600, printer_feed_mm: 51 } },
+    rs_pro: { title: "RS PRO 178-5731 (SPRT SP-RMD9)", sub: "The panel printer from the wooden box build.",
+      values: { printer_enabled: true, printer_port: "serial", printer_raster: "esc_k", printer_reverse: true, printer_baud: 9600, printer_feed_mm: 22, printer_heat: 0 } },
+    usb: { title: "USB printer", sub: "On the hub. Needs a Linux printer driver on the board.",
+      values: { printer_enabled: true, printer_port: "usb", printer_raster: "gs_v0" } },
+    none: { title: "No printer", sub: "Skip printing. Everything else works the same.",
+      values: { printer_enabled: false, print_each_detection: false } },
+  };
+  const IMAGE_ORDER = ["gs_v0", "dc2_star", "esc_k", "esc_star"];
+
+  function stepPrinter(main) {
+    main.append(h("h2", {}, "Printer"),
+      h("p", { class: "lead" }, "The printer turns each bird into a printed card. These steps check the wiring, find the image command your printer understands, and tune darkness, orientation and feed."),
+      figure("setup/base-tray.png", "The printer sits face down in the base, clamped into its plate"));
+    const model = printerModel();
+    const pick = h("div", { class: "choices" }, Object.entries(PRINTERS).map(([key, p]) =>
+      h("button", { type: "button", class: "choice" + (model === key ? " on" : ""), onclick: async () => {
+        store.set("printer", key);
+        await setMany(p.values);
+        main.replaceChildren(); stepPrinter(main);
+      } }, h("b", {}, p.title), h("span", {}, p.sub))));
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "1"), "Which printer?"), pick));
+    if (!model || model === "none") return;
+
+    // 2. Wiring.
+    if (val("printer_port") === "serial") {
+      main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "2"), "Wire it"),
+        control("printer_uart", { onchange: () => { main.replaceChildren(); stepPrinter(main); } }),
+        h("table", { class: "pins" },
+          h("tr", {}, h("th", {}, "Printer"), h("th", {}, "UNO Q")),
+          h("tr", {}, h("td", {}, h("b", {}, "RX"), " (data in)"), h("td", {}, val("printer_uart") === 1 ? "D1 (TX)" : "SCL (D21, TX)")),
+          h("tr", {}, h("td", {}, "TX (optional)"), h("td", {}, val("printer_uart") === 1 ? "D0 (RX)" : "SDA (D20, RX)")),
+          h("tr", {}, h("td", {}, "GND"), h("td", {}, "GND")),
+          h("tr", {}, h("td", {}, "Power (VH)"), h("td", {}, model === "csn_a2" ? "5V on the board (the servo then goes on 3V3)" : "Its own supply, not the board"))),
+        tip(h("ul", {},
+          h("li", {}, ["The board's ", h("b", {}, "TX"), " goes to the printer's ", h("b", {}, "RX"), ". Go by the labels on the printer's connector: the pin order differs between printers."]),
+          h("li", {}, "A TTL printer takes the board's 3.3 V signal directly. An RS-232 one needs a MAX3232 module in between."),
+          model === "csn_a2"
+            ? h("li", {}, "In the printed enclosure the CSN-A2 runs from the board's 5V and GND, and the servo moves to 3V3. Printing draws a lot of current, so power the hub with a charger of at least 15 W. If prints fade or the board restarts while printing, give the printer its own 5–9 V supply (GND still joined to the board's).")
+            : h("li", {}, "The printer needs its own supply (about 2 A while printing). Its GND must also go to the board's GND."),
+          val("printer_uart") === 1 ? h("li", {}, "D0/D1 is also the board's boot console, so a line of text may print when the board starts. SCL/SDA avoids that.") : null), true),
+        h("p", { class: "lead" }, "Find the printer's speed on its self-test page: turn it off, hold its FEED button and turn it on."),
+        control("printer_baud")));
+    } else {
+      main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "2"), "Plug it in"),
+        h("p", { class: "lead" }, "Plug the printer into the hub and give it its own power."),
+        control("printer_device", { label: "USB device (auto finds it)" }),
+        tip("If the debug page says no printer found, the board has no Linux driver for it. The serial pins always work.", true)));
+    }
+
+    // 3. Text test.
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "3"), "Test the connection"),
+      h("div", { class: "row" }, btn("Print test text", () => printTest("text"), true)),
+      ask("What came out?", [
+        { text: "Readable text", primary: true, act: () => check("ok", "Wiring and speed are right") },
+        { text: "Garbled characters", act: () => tip(["The speed doesn't match the printer. Set ", h("b", {}, "Serial speed"),
+          " to the baud rate on the self-test page and try again."], true) },
+        { text: "Nothing", act: () => tip(h("ul", {},
+          h("li", {}, "Is the wire on the printer's RX? Being on TX or the wrong pin prints nothing at all."),
+          h("li", {}, "Is the printer's GND joined to the board's GND?"),
+          h("li", {}, "Does the self-test page print? If not, it's power or paper (thermal side facing the head)."),
+          h("li", {}, "Is the Printer UART setting the same pins you wired to?"),
+          h("li", {}, "An RS-232 printer needs a MAX3232 module.")), true) },
+      ])));
+
+    // 4. Image command.
+    const imgState = h("div", {}, check("", `Image command: ${fmtValue("printer_raster", val("printer_raster"))}`));
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "4"), "Find the image command"),
+      h("p", { class: "lead" }, "Printers differ in how they take pictures. Print the test pattern: you're looking for a box with two diagonals and a black bar."),
+      imgState,
+      h("div", { class: "row" }, btn("Print the test pattern", () => printTest(val("printer_raster")), true)),
+      ask("What came out?", [
+        { text: "Box, diagonals and bar", primary: true, act: () => check("ok", "That's the one", fmtValue("printer_raster", val("printer_raster"))) },
+        { text: "Random characters or nothing", act: async () => {
+          const next = IMAGE_ORDER[(IMAGE_ORDER.indexOf(val("printer_raster")) + 1) % IMAGE_ORDER.length];
+          await set("printer_raster", next);
+          imgState.replaceChildren(check("", `Image command: ${fmtValue("printer_raster", next)}`));
+          printTest(next);
+          return check("warn", `Trying ${fmtValue("printer_raster", next)}`, "A new test pattern is printing. Answer again for this one.");
+        } },
+        { text: "Picture in strips with gaps", act: () => tip("That's ESC *. Print the spacing test from the debug page and set the band spacing that makes the strips touch.", true) },
+      ])));
+
+    // 5. Feed (early, so the other tests clear the slot).
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "5"), "Feed after a card"),
+      h("p", { class: "lead" }, "After a card or summary the printer feeds the paper so the whole receipt clears the slot and can be torn off. The CSN-A2 in the printed base needs about 51 mm."),
+      control("printer_feed_mm"),
+      h("div", { class: "row" }, btn("Print the feed test", () => printTest("feed"), true)),
+      tip(h("ul", {},
+        h("li", {}, "The dashed line is still inside the box: increase the feed."),
+        h("li", {}, "Blank paper sticks out past it: decrease it.")))));
+
+    // 6. Proportions.
+    const shapeNote = h("div", {});
+    const wIn = h("input", { type: "number", min: 10, max: 60, step: 0.5, value: 30, style: "width:90px" });
+    const hIn = h("input", { type: "number", min: 10, max: 60, step: 0.5, value: 30, style: "width:90px" });
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "6"), "Proportions"),
+      h("p", { class: "lead" }, "Printers step the paper by slightly different amounts, so pictures can come out squashed or stretched top to bottom. This prints a square 30 mm on each side: measure it with a ruler."),
+      h("div", { class: "row" }, btn("Print the square", () => printTest("square"), true)),
+      h("div", { class: "row" }, h("label", { class: "k" }, "Width across"), wIn, h("span", {}, "mm")),
+      h("div", { class: "row" }, h("label", { class: "k" }, "Height along the paper"), hIn, h("span", {}, "mm")),
+      h("div", { class: "row" }, btn("Correct it", async () => {
+        const w = parseFloat(wIn.value), ht = parseFloat(hIn.value);
+        if (!(w > 0 && ht > 0)) { toast("Enter both sizes", true); return; }
+        const next = Math.round(val("printer_stretch") * w / ht);
+        const v = await set("printer_stretch", next);
+        shapeNote.replaceChildren(check(v === val("printer_stretch") ? "ok" : "warn", `Vertical scale set to ${v}%`,
+          "Print the square again: it should now measure the same both ways."));
+      }), btn("Reset to 100%", async () => {
+        await set("printer_stretch", 100);
+        shapeNote.replaceChildren(check("ok", "Vertical scale back to 100%"));
+      })),
+      shapeNote,
+      control("printer_stretch")));
+
+    // 7. Darkness.
+    const heatNote = h("div", {});
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "7"), "Darkness"),
+      h("p", { class: "lead" }, "The bird cards use grey bars and thin lines, which fade on a light setting. This prints the same swatch at six heat levels: pick the darkest one that's still crisp, with no smudging."),
+      h("div", { class: "row" }, btn("Print the darkness strip", () => printTest("darkness"), true)),
+      h("div", { class: "row" }, h("b", {}, "Which looked best?")),
+      h("div", { class: "row" }, [60, 90, 120, 150, 180, 220].map((n) => btn(String(n), async () => {
+        await set("printer_heat", n);
+        heatNote.replaceChildren(check("ok", `Darkness set to ${n}`, "Sent with every print from now on."));
+      })), btn("Leave it to the printer", async () => {
+        await set("printer_heat", 0);
+        heatNote.replaceChildren(check("ok", "Using the printer's own darkness"));
+      })),
+      heatNote,
+      tip("Darkness works on CSN-A2 family printers. Higher is darker but slower and uses more power. If every swatch looks the same, your printer ignores it: choose “Leave it to the printer”.")));
+
+    // 8. Orientation.
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "8"), "Which way up?"),
+      h("p", { class: "lead" }, "The printer is face down in the base, so receipts can come out upside down for someone reading them in front of the box."),
+      h("div", { class: "row" }, btn("Print a scroll line", () => printReceipt("line"), true)),
+      ask("Standing in front of the box, is the text the right way up as it comes out?", [
+        { text: "Yes", primary: true, act: () => check("ok", "Orientation is right") },
+        { text: "Upside down", act: async () => {
+          await set("printer_flip", !val("printer_flip"));
+          return check("warn", "Receipts turned round", "Print another to check.");
+        } },
+      ])));
+
+    // 9. A real card.
+    main.append(h("div", { class: "substep" }, h("h3", {}, h("span", { class: "n" }, "9"), "Print a bird card"),
+      h("p", { class: "lead" }, "The full card for the last bird heard (or a placeholder if none yet), with its silhouette, description and song chart."),
+      h("div", { class: "row" }, btn("Print a bird card", () => printReceipt("card"), true), btn("Print the daily summary", () => printReceipt("summary"))),
+      val("listen_mode") === "both" ? h("div", { class: "row" },
+        btn("The other BirdBox's card", () => printReceipt("card_cloud")),
+        btn("The other BirdBox's summary", () => printReceipt("summary_cloud"))) : null,
+      control("print_each_detection")));
+  }
+
+  function stepLocation(main) {
+    main.append(h("h2", {}, "Location"),
+      h("p", { class: "lead" }, "With your location, BirdNET only reports species found near you at this time of year, which cuts out most mistakes."),
+      figure("setup/back.png", "Hang the box on a wall screw through the keyhole, cables through the notches"),
+      control("latitude", { number: true, label: "Latitude (north +)" }),
+      control("longitude", { number: true, label: "Longitude (east +)" }),
+      control("range_filter", { label: "Only species found near here" }),
+      tip(["Latitude is the north–south number and comes first. Cambridge, UK is 52.2053, 0.1218. Find yours by right-clicking a spot in ",
+        h("a", { href: "https://www.openstreetmap.org", target: "_blank", rel: "noopener" }, "OpenStreetMap"), " and choosing Show address."]));
+  }
+
+  async function stepDone(main) {
+    await refreshWizard();
+    const p = val("printer_enabled");
+    main.append(h("h2", {}, "All set"),
+      h("p", { class: "lead" }, (status.problems || []).some((p) => p.level === "warn")
+        ? "Nearly there: the points above don't work together yet. Here's how this BirdBox is set up."
+        : "Here's how this BirdBox is set up, and the settings all work together. Everything can be changed later on the debug page or your dashboard."),
+      figure("setup/hero-front-right.png", "Ready for the garden"),
+      h("table", { class: "pins" },
+        h("tr", {}, h("td", {}, "Arduino Cloud"), h("td", {}, wizard.board.connected ? `Connected (Thing ${wizard.board.thing_id})` : "Not connected")),
+        h("tr", {}, h("td", {}, "Listening"), h("td", {}, fmtValue("listen_mode", val("listen_mode")) +
+          (val("listen_mode") !== "mic" ? ` (following ${(status.source && status.source.thing_name) || val("source_thing_id") || "nobody yet"})` : ""))),
+        h("tr", {}, h("td", {}, "Buzzer"), h("td", {}, wizard.buzzer_found ? "Found" : "Not found")),
+        h("tr", {}, h("td", {}, "Servo"), h("td", {}, `${pinName(val("servo_pin"))}, ${val("travel_ms")} ms travel at ${val("servo_speed")}%${val("servo_reverse") ? ", reversed" : ""}`)),
+        h("tr", {}, h("td", {}, "Buttons"), h("td", {}, [1, 2, 3, 4].map((n) => val(`button${n}_pin`) >= 0
+          ? `${n}: ${pinName(val(`button${n}_pin`))} → ${fmtValue(`button${n}_action`, val(`button${n}_action`))}` : `${n}: not used`).join("; "))),
+        h("tr", {}, h("td", {}, "Printer"), h("td", {}, !p ? "None" : [fmtValue("printer_port", val("printer_port")),
+          fmtValue("printer_raster", val("printer_raster")), `${val("printer_baud")} baud`,
+          val("printer_heat") ? `darkness ${val("printer_heat")}` : "printer's own darkness", `${val("printer_feed_mm")} mm feed`].join(", "))),
+        h("tr", {}, h("td", {}, "Location"), h("td", {}, val("range_filter") ? `${val("latitude")}, ${val("longitude")}` : "Range filter off"))),
+      h("h3", {}, "Wiring"),
+      wiringDiagram(),
+      h("div", { class: "row" }, h("a", { class: "b", href: "/" }, "Open the debug page"),
+        h("a", { class: "b", href: "https://app.arduino.cc/dashboards", target: "_blank", rel: "noopener" }, "Open your dashboards"),
+        btn("Test the whole bird", () => servo("test"), true)));
+  }
+
+  // --- Navigation ----------------------------------------------------------
+  function renderNav() {
+    const ol = $("steps");
+    ol.replaceChildren(...steps.map((s, i) => h("li", { class: (i === current ? "current " : "") + (done.has(s.id) ? "done" : "") },
+      h("button", { type: "button", onclick: () => go(i) }, h("span", { class: "num" }, done.has(s.id) ? "✓" : String(i + 1)), h("span", { class: "label" }, s.title)))));
+  }
+  async function go(i) {
+    clearTimers();
+    current = Math.max(0, Math.min(steps.length - 1, i));
+    store.set("step", current);
+    history.replaceState(null, "", "#" + steps[current].id);
+    renderNav();
+    const main = $("main");
+    main.replaceChildren();
+    const content = h("div", {});
+    main.append(content);
+    try {
+      await refresh();
+      await steps[current].render(content);
+      const id = steps[current].id;
+      const mine = (status.problems || []).filter((p) => id === "done" || p.step === id);
+      if (mine.length) {
+        const box = h("div", {}, mine.map((p) => check(p.level === "warn" ? "warn" : "", p.text,
+          id === "done" ? h("a", { href: "#" + p.step, onclick: (ev) => { ev.preventDefault(); go(steps.findIndex((st) => st.id === p.step)); } }, "Fix it") : null)));
+        const heading = content.querySelector("h2");
+        heading ? heading.after(box) : content.prepend(box);
+      }
+    } catch (e) {
+      content.append(check("bad", "Something went wrong", e.message));
+    }
+    main.append(h("div", { class: "footer" },
+      current > 0 ? btn("← Back", () => go(current - 1)) : h("span", {}),
+      current < steps.length - 1 ? btn(current === 0 ? "Start →" : "Next →", () => {
+        done.add(steps[current].id); store.set("done", [...done]); go(current + 1);
+      }, true) : btn("Finish", () => { done.add("done"); store.set("done", [...done]); renderNav(); toast("Setup complete"); }, true)));
+    main.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  async function start() {
+    try {
+      await refresh();
+    } catch (e) {
+      $("conn").textContent = e.message.startsWith("Debug UI is off") ? "debug UI off" : "unreachable";
+      $("conn").className = "pill bad";
+      if (e.message.startsWith("Debug UI is off")) $("off").hidden = false;
+      else setTimeout(start, 3000);
+      return;
+    }
+    $("conn").textContent = "live";
+    $("conn").className = "pill ok";
+    $("app").hidden = false;
+    // setup.html#printer opens that step directly.
+    const linked = steps.findIndex((st) => "#" + st.id === location.hash);
+    go(linked >= 0 ? linked : current);
+  }
+  start();
+})();
+</script>
+</body>
+</html>

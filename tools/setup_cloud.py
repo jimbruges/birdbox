@@ -10,8 +10,12 @@ Needs an API key saved as described in tools/arduino_cloud.py.
 `plan` only reads. `thing` adds any missing variables (only the Free set with
 --free, which fits the Free plan's 5-variable limit) and fixes permissions;
 --delete-legacy also removes variables from older versions of the app.
-`dashboards` creates "BirdBox Free" and/or "BirdBox Pro", or replaces their
-widgets if they already exist.
+`dashboards` creates "BirdBox Free - <Thing name>" and/or "BirdBox Pro - <Thing
+name>", or replaces their widgets if they already exist. It only ever changes a
+dashboard whose widgets all belong to this Thing: one that shows another Thing's
+variables (another BirdBox's dashboard, or one you made) is left alone, and a new one
+is created instead. A dashboard from an older version called just "BirdBox Free" or
+"BirdBox Pro" is taken over (and renamed) only if it's entirely this Thing's.
 """
 
 import argparse
@@ -197,18 +201,46 @@ def widgets(layout: list, ids: dict) -> list[dict]:
     return result
 
 
-def apply_dashboards(thing: dict, which: list[str]) -> None:
+def _widget_variable_ids(dashboard: dict) -> set[str]:
+    found = set()
+    for widget in dashboard.get("widgets") or []:
+        for variable in widget.get("variables") or []:
+            found.add(variable if isinstance(variable, str) else variable.get("id"))
+    return found
+
+
+def _only_this_things(dashboard_id: str, own_ids: set[str]) -> bool:
+    """True when every widget on the dashboard shows one of this Thing's variables."""
+    return _widget_variable_ids(api("GET", f"/iot/v2/dashboards/{dashboard_id}")) <= own_ids
+
+
+def apply_dashboards(thing: dict, which: list[str]) -> list[tuple[str, str]]:
+    """Create or update this Thing's dashboards, never another Thing's. Returns (action, name)."""
     ids = {name: prop["id"] for name, prop in properties(thing).items()}
-    current = {d["name"]: d for d in api("GET", "/iot/v2/dashboards")}
+    own_ids = set(ids.values())
+    thing_name = thing.get("name") or api("GET", f"/iot/v2/things/{thing['id']}")["name"]
+    existing = api("GET", "/iot/v2/dashboards")
+    done = []
     for key in which:
-        name, layout = DASHBOARDS[key]
+        base, layout = DASHBOARDS[key]
+        name = f"{base} - {thing_name}"
         body = {"name": name, "widgets": widgets(layout, ids)}
-        if name in current:
-            api("PUT", f"/iot/v2/dashboards/{current[name]['id']}", body)
-            print(f"updated   {name}")
+        # This Thing's own dashboard first, then an old unsuffixed one, if it's all this Thing's.
+        candidates = [d for d in existing if d["name"] == name] + [d for d in existing if d["name"] == base]
+        mine = next((d for d in candidates if _only_this_things(d["id"], own_ids)), None)
+        if mine:
+            api("PUT", f"/iot/v2/dashboards/{mine['id']}", body)
+            action = "updated" if mine["name"] == name else f"updated (was {mine['name']!r})"
         else:
             created = api("POST", "/iot/v2/dashboards", body)
-            print(f"created   {name}  {created['id']}")
+            existing.append({"id": created["id"], "name": name})
+            action = "created"
+        skipped = [d["name"] for d in candidates if d is not mine and d["name"] == base]
+        if skipped:
+            print(f"left      {base!r}: it shows another Thing's variables")
+        print(f"{action:<10} {name}")
+        done.append((action, name))
+    return done
 
 
 def main() -> None:

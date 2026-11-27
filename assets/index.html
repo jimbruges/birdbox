@@ -73,13 +73,15 @@
     font-size: 12px;
     white-space: nowrap;
   }
+  #printerDevice { white-space: normal; max-width: 100%; }
+  select { max-width: 100%; }
   .pill.ok { color: var(--accent); border-color: var(--accent); }
   .pill.warn { color: var(--warn); border-color: var(--warn); }
   .pill.bad { color: var(--bad); border-color: var(--bad); }
   .grid {
     display: grid;
     gap: 16px;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     align-items: start;
   }
   .card {
@@ -90,6 +92,34 @@
     min-width: 0;
   }
   .card.wide { grid-column: 1 / -1; }
+  .card.setup {
+    display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; border-color: var(--accent); border-width: 2px;
+  }
+  .card.setup h2 { font-size: 18px; margin-bottom: 4px; }
+  .card.setup p { margin: 0; color: var(--muted); max-width: 70ch; }
+  .card.setup.done { border-width: 1px; border-color: var(--line); }
+  .card.setup.done .setup-go { background: none; color: var(--accent); border: 1px solid var(--accent); }
+  .setup-text { flex: 1 1 360px; min-width: 0; }
+  .setup-go {
+    flex: none; background: var(--accent); color: var(--card); text-decoration: none; font-weight: 600;
+    padding: 12px 20px; border-radius: 10px; font-size: 15px;
+  }
+  .other-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 8px; }
+  .other-head h2 { margin: 0; }
+  .other-head a { margin-left: auto; font-size: 13px; }
+  .other-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); align-items: start; }
+  .other-last { font-size: 18px; margin: 6px 0; }
+  .other-last .sci { font-style: italic; color: var(--muted); font-size: 14px; }
+  .other-recent { margin: 6px 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+  .other-recent li { display: flex; gap: 10px; padding: 4px 0; border-top: 1px solid var(--line); }
+  .other-recent li span:last-child { margin-left: auto; color: var(--muted); }
+  .setup-problems { margin: 8px 0 0; padding: 0; list-style: none; }
+  .setup-problems li { margin: 4px 0; }
+  .setup-problems li::before { content: "! "; font-weight: 700; }
+  .setup-problems li.warn { color: var(--warn); }
+  .setup-problems li.info { color: var(--muted); }
+  .setup-problems a { color: inherit; }
   .muted { color: var(--muted); }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
   .row label { color: var(--muted); min-width: 110px; }
@@ -157,7 +187,8 @@
   }
   .track .pos { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar-hit); border-radius: 6px; }
   .track .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warn); }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+  td, th { overflow-wrap: anywhere; }
   td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
   td.k { color: var(--muted); width: 45%; word-break: break-word; }
   td.v { word-break: break-word; }
@@ -181,7 +212,7 @@
   }
   .toast:empty { display: none; }
   .toast.err { color: var(--bad); border-color: var(--bad); }
-  .groups { display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .groups { display: grid; gap: 4px 24px; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
   .groups h3 { font-size: 13px; margin: 10px 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .setting .unit { color: var(--muted); }
   .setting input[type="number"] { width: 90px; }
@@ -214,7 +245,45 @@
   <p>Set the <code>debug_ui</code> variable to <strong>true</strong> in Arduino Cloud to use this page.</p>
 </div>
 
+<section class="card setup" id="setupCard">
+  <div class="setup-text">
+    <h2 id="setupTitle">Set up your BirdBox</h2>
+    <p id="setupLead">New box, or something not working? The setup wizard goes step by step through Arduino Cloud, the
+      microphone, the servo, the buttons and the printer, testing each part on the real hardware.</p>
+    <ul class="setup-problems" id="setupProblems"></ul>
+  </div>
+  <a class="setup-go" href="setup.html">Open the setup wizard →</a>
+</section>
+
 <div id="panels" class="grid">
+
+  <section class="card wide" id="otherCard" hidden>
+    <div class="other-head">
+      <h2 id="otherTitle">Other BirdBox</h2>
+      <span class="pill" id="otherState">-</span>
+      <a class="muted" href="setup.html#listen">Change in the setup wizard</a>
+    </div>
+    <div class="other-grid">
+      <div>
+        <div class="muted" id="otherMode"></div>
+        <div class="other-last" id="otherLast">No birds from it yet.</div>
+        <div class="row" id="otherStats"></div>
+        <ol class="other-recent" id="otherRecent"></ol>
+      </div>
+      <div>
+        <div class="row">
+          <button type="button" data-other-preview="card">Preview its bird card</button>
+          <button type="button" data-other-preview="summary">Its daily summary</button>
+          <button type="button" data-other-preview="line">Its scroll line</button>
+        </div>
+        <div class="row">
+          <button type="button" class="primary" id="otherPrint" disabled>Print this</button>
+          <span class="muted" id="otherInfo">Pick a receipt to preview.</span>
+        </div>
+        <div class="receipt"><img id="otherImg" alt="Receipt preview for the other BirdBox" hidden></div>
+      </div>
+    </div>
+  </section>
 
   <section class="card">
     <h2>Microphone</h2>
@@ -430,6 +499,83 @@
     $("panels").hidden = showOff;
   }
 
+  function setupDone() {
+    try { return (JSON.parse(localStorage.getItem("birdbox-setup-done") || "[]")).includes("done"); }
+    catch (_) { return false; }
+  }
+
+  function renderSetup(problems) {
+    const done = setupDone();
+    const warns = problems.filter((p) => p.level === "warn").length;
+    $("setupCard").className = "card setup" + (done && !warns ? " done" : "");
+    $("setupTitle").textContent = !done ? "Set up your BirdBox"
+      : warns ? `Setup: ${warns} thing${warns > 1 ? "s" : ""} to check` : "Setup complete";
+    $("setupLead").textContent = !done
+      ? "New box, or something not working? The setup wizard goes step by step through Arduino Cloud, the microphone, the servo, the buttons and the printer, testing each part on the real hardware."
+      : warns ? "Some settings don't work together. Each one below opens the wizard at the step that fixes it."
+        : "Everything set in the wizard fits together. Run it again any time you change the hardware.";
+    $("setupCard").querySelector(".setup-go").textContent = done ? "Open the setup wizard" : "Open the setup wizard →";
+    const list = $("setupProblems");
+    list.replaceChildren(...problems.map((p) => {
+      const li = document.createElement("li");
+      li.className = p.level;
+      const a = document.createElement("a");
+      a.href = `setup.html#${p.step}`;
+      a.textContent = p.text;
+      li.append(a);
+      return li;
+    }));
+  }
+
+  const hhmm = (iso) => (iso || "").slice(11, 16);
+
+  function renderOther(src) {
+    const card = $("otherCard");
+    const following = src && (src.mode === "cloud" || src.mode === "both");
+    card.hidden = !following;
+    if (!following) return;
+    const name = src.thing_name || (src.thing_id ? "Other BirdBox" : "No BirdBox chosen");
+    $("otherTitle").textContent = name;
+    const state = !src.thing_id ? ["not set up", "warn"] : src.last_error ? ["can't read it", "bad"]
+      : src.running ? ["following", "ok"] : ["starting", ""];
+    $("otherState").textContent = state[0];
+    $("otherState").className = "pill " + state[1];
+    $("otherMode").textContent = (src.mode === "both"
+      ? "Its birds are kept apart from this unit's, with their own cards and summary."
+      : "This unit plays, prints and logs its birds as its own.")
+      + (src.last_error ? ` Error: ${src.last_error}` : "")
+      + (src.checked_at ? ` Checked ${hhmm(src.checked_at)}.` : "");
+    const last = src.sender_last;
+    const lastEl = $("otherLast");
+    lastEl.replaceChildren();
+    if (last && last.species) {
+      const sci = document.createElement("span");
+      sci.className = "sci";
+      sci.textContent = ` ${last.scientific}`;
+      lastEl.append(`Last heard: ${last.species}`, sci,
+        ` · ${hhmm(last.at)}` + (last.confidence != null ? ` · ${Math.round(last.confidence * 100)}%` : ""));
+    } else {
+      lastEl.textContent = src.thing_id ? "No birds from it yet." : "Choose which BirdBox to follow in the setup wizard.";
+    }
+    const today = src.today || { total: 0, species: 0, top: [] };
+    const stats = [`${today.total} today`, `${today.species} species`, `${src.received || 0} since this unit started`];
+    $("otherStats").replaceChildren(...stats.map((t) => {
+      const p = document.createElement("span");
+      p.className = "pill";
+      p.textContent = t;
+      return p;
+    }));
+    $("otherRecent").replaceChildren(...(src.recent || []).map((r) => {
+      const li = document.createElement("li");
+      const t = document.createElement("span"), n = document.createElement("span"), c = document.createElement("span");
+      t.textContent = hhmm(r.when);
+      n.textContent = r.common;
+      c.textContent = `${Math.round(r.confidence * 100)}%`;
+      li.append(t, n, c);
+      return li;
+    }));
+  }
+
   function renderLevel(mic) {
     const level = mic.level || {};
     const rms = level.rms_dbfs;
@@ -534,6 +680,7 @@
       (pr.busy_line && pr.busy_line !== "not used" ? ` · busy line ${pr.busy_line}` : "");
     $("printerDevice").className = "pill " + (pr.device ? "ok" : "");
     $("printerCount").textContent = (pr.printed ? `${pr.printed} printed since start` : "") +
+      (pr.usb_candidates && !pr.device ? ` · looked for USB printers at /dev/usb/lp*, /dev/ttyACM*, /dev/ttyUSB*` : "") +
       (pr.last_error ? ` · last error: ${pr.last_error}` : "");
     const demo = pr.demo || {};
     $("btnDemo").textContent = demo.running ? "Stop" : "Start";
@@ -547,18 +694,23 @@
 
   let previewKind = null;
 
-  async function preview(kind) {
-    previewKind = kind;
+  let otherKind = null;
+
+  // Preview a receipt in the printer card, or (other = true) in the other BirdBox's card.
+  async function preview(kind, other) {
+    if (other) otherKind = kind; else previewKind = kind;
+    const ids = other ? ["otherImg", "otherInfo", "otherPrint"] : ["receiptImg", "receiptInfo", "btnPrint"];
     try {
       const res = await fetch(`/api/receipt?kind=${kind}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const url = URL.createObjectURL(await res.blob());
-      const img = $("receiptImg");
+      const img = $(ids[0]);
       if (img.src) URL.revokeObjectURL(img.src);
       img.src = url;
       img.hidden = false;
-      $("receiptInfo").textContent = `${kind}: ${res.headers.get("X-Paper-mm")} mm of paper`;
-      $("btnPrint").disabled = false;
+      const label = kind.replace("_cloud", "").replace("line", "scroll line").replace("card", "bird card").replace("summary", "daily summary");
+      $(ids[1]).textContent = `${other ? "Its " : ""}${label}: ${res.headers.get("X-Paper-mm")} mm of paper`;
+      $(ids[2]).disabled = false;
     } catch (err) {
       toast(err.message, true);
     }
@@ -764,6 +916,7 @@
       setDebugState(true, true);
       $("listen").textContent = data.listening ? "listening" : "not listening";
       $("listen").className = "pill " + (data.listening ? "ok" : "bad");
+      renderOther(data.source);
       renderLevel(data.mic);
       renderModel(data.birdnet);
       renderServo(data.servo);
@@ -771,6 +924,7 @@
       renderBirdsong(data.birdsong);
       renderPrinter(data.printer);
       renderVariables(data.variables);
+      renderSetup(data.problems || []);
       if (!songsLoaded) loadSongs();
       debugOn = true;
     } catch (err) {
@@ -833,6 +987,14 @@
       b.addEventListener("click", () => api("/api/printer_test", { test: b.dataset.test })
         .then(() => toast(`Sent the ${b.textContent.toLowerCase()}`))
         .catch((err) => toast(err.message, true))));
+    document.querySelectorAll("button[data-other-preview]").forEach((b) =>
+      b.addEventListener("click", () => preview(b.dataset.otherPreview + "_cloud", true)));
+    $("otherPrint").addEventListener("click", () => {
+      if (!otherKind) return;
+      api("/api/print", { kind: otherKind })
+        .then(() => toast("Sent to the printer"))
+        .catch((err) => toast(err.message, true));
+    });
     document.querySelectorAll("button[data-preview]").forEach((b) =>
       b.addEventListener("click", () => preview(b.dataset.preview)));
     $("btnPrint").addEventListener("click", () => {

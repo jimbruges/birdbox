@@ -233,7 +233,8 @@ def song_contour(segments: list[tuple[int, int, int]], width: int = WIDTH, heigh
 def bird_card(*, common: str, scientific: str, when: datetime, confidence: float,
               today: int, total: int, song: list | None = None,
               picture: tuple[Path, str] | None = None, description: str | None = None,
-              description_source: str = "wikipedia", credits: bool = True) -> Image.Image:
+              description_source: str = "wikipedia", credits: bool = True,
+              heard_by: str | None = None) -> Image.Image:
     """An encyclopaedia entry for the last bird heard, in as little paper as possible."""
     c = Canvas()
     pic_size = 92
@@ -248,6 +249,8 @@ def bird_card(*, common: str, scientific: str, when: datetime, confidence: float
     c.y += sci_font.getbbox("Ag")[3] + 4
     meta = font(15)
     c.lines([f"Heard {when:%a %d %b %Y}, {when:%H:%M}", f"{round(confidence * 100)}% certain"], meta)
+    if heard_by:
+        c.lines([truncate(c, f"by {heard_by}", meta, text_w - 8)], meta)
     times = "once" if total == 1 else f"{total} times"
     c.lines([f"{today} today; {times} in all"], meta)
     if picture:
@@ -304,7 +307,8 @@ def scroll_line(*, common: str, when: datetime, confidence: float, size: int = S
     return c.image.crop((0, 0, WIDTH, c.y))
 
 
-def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetime) -> Image.Image:
+def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetime,
+                  heard_by: str | None = None) -> Image.Image:
     """The day's register: totals, the top species and a 24-hour activity chart."""
     c = Canvas()
     title = "DAILY REGISTER"
@@ -315,6 +319,10 @@ def daily_summary(*, summary: dict, hourly: list[tuple[int, int]], when: datetim
     sf = font(15)
     c.draw.text(((WIDTH - c.text_width(sub, sf)) // 2, c.y), sub, font=sf, fill=0)
     c.y += sf.getbbox("Ag")[3]
+    if heard_by:
+        by = truncate(c, f"Heard by {heard_by}", sf, WIDTH)
+        c.draw.text(((WIDTH - c.text_width(by, sf)) // 2, c.y), by, font=sf, fill=0)
+        c.y += sf.getbbox("Ag")[3]
     c.rule(double=True)
 
     busiest = max(hourly, key=lambda h: h[1]) if hourly and any(n for _, n in hourly) else None

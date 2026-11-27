@@ -10,7 +10,9 @@ Two ways to reach the printer:
 - "serial" (default): the MCU's hardware serial pins D0/D1. The bytes go to the
   sketch over the Router Bridge in base64 chunks; it buffers them and feeds the
   UART at the printer's baud rate.
-- "usb": a USB printer on the hub, written directly from Linux.
+- "usb": a USB printer, written directly from Linux. That's the CSN-A2 on its
+  mini USB port, or any other USB printer: the printer-class node (/dev/usb/lp*)
+  or a USB serial node (/dev/ttyACM*, /dev/ttyUSB*), at the chosen baud rate.
 
 With no printer attached, jobs are dropped (USB) or simply go nowhere (serial),
 and the rest of the app carries on.
@@ -35,23 +37,36 @@ logger = Logger("Printer")
 # Where a USB printer shows up: the printer class driver, USB serial, or a
 # USB-to-RS-232 adapter.
 CANDIDATES = ("/dev/usb/lp*", "/dev/ttyACM*", "/dev/ttyUSB*")
-SERIAL_BAUD = termios.B9600     # only matters for a real RS-232 link
+BAUD_CONSTANTS = {9600: termios.B9600, 19200: termios.B19200, 38400: termios.B38400,
+                  57600: termios.B57600, 115200: termios.B115200}
 BAND_ROWS = 128                 # rows per raster command; keeps each write small
 TEAR_FEED_MM = 22               # default feed after a card or summary, so it clears the box
 
 ESC_INIT = b"\x1b@"
+HEAT_DOTS = 11                  # ESC 7 n1: dots heated at once (Adafruit's default for the CSN-A2 family)
+HEAT_INTERVAL = 40              # ESC 7 n3: gap between heating, in 10 us
+
+
+def heat(time: int) -> bytes:
+    """ESC 7: heating time in 10 us units. Longer is darker and slower. CSN-A2 family."""
+    return b"\x1b7" + bytes((HEAT_DOTS, max(3, min(255, time)), HEAT_INTERVAL))
 CHUNK = 144                     # raw bytes per Bridge call: 192 base64 chars, inside the RPC buffer
 BAUD_RATES = (9600, 19200, 38400, 57600, 115200)
+
+
+def candidates() -> list[str]:
+    """Every USB printer node that's present, in the order they're tried."""
+    found: list[str] = []
+    for pattern in CANDIDATES:
+        found += sorted(glob.glob(pattern))
+    return found
 
 
 def find_device(setting: str = "auto") -> str | None:
     if setting and setting != "auto":
         return setting if os.path.exists(setting) else None
-    for pattern in CANDIDATES:
-        found = sorted(glob.glob(pattern))
-        if found:
-            return found[0]
-    return None
+    found = candidates()
+    return found[0] if found else None
 
 
 def _black_rows(image: Image.Image) -> tuple[bytes, int, int]:
@@ -72,12 +87,21 @@ def raster_gs_v0(image: Image.Image) -> bytes:
     return bytes(out)
 
 
+DC2_BUFFER = 256                # bytes the CSN-A2 can take in one DC2 * block without a handshake line
+
+
 def raster_dc2_star(image: Image.Image) -> bytes:
-    """DC2 *: the raster command of the CSN-A2 / Adafruit family of panel printers."""
+    """DC2 *: the raster command of the CSN-A2 / Adafruit family of panel printers.
+
+    Without the DTR handshake the printer only buffers about 256 bytes, so (like
+    Adafruit's driver) each block is limited to that: 5 rows at 384 dots wide.
+    A larger block overflows it and the rest of the image prints as characters.
+    """
     data, width_bytes, height = _black_rows(image)
+    chunk = max(1, min(255, DC2_BUFFER // width_bytes))
     out = bytearray()
-    for top in range(0, height, 255):
-        rows = min(255, height - top)
+    for top in range(0, height, chunk):
+        rows = min(chunk, height - top)
         out += b"\x12*" + bytes((rows, width_bytes)) + data[top * width_bytes:(top + rows) * width_bytes]
     return bytes(out)
 
@@ -179,6 +203,8 @@ class Printer:
         self.reverse = True             # ESC K only: printer set to Reverse direction (SPRT default)
         self.feed_mm = TEAR_FEED_MM     # feed after cards and summaries (scroll lines get none)
         self.flip = True                # turn the whole receipt 180° (it comes out the other way round)
+        self.heat_time = 0              # ESC 7 heating time (darkness); 0 = leave the printer's own setting
+        self.stretch = 100              # vertical scale in %, for printers whose paper step is short or long
         self.status: int | None = None  # last ESC/POS status byte over serial, -1 = no reply
         self.last_error: str | None = None
         self.printed = 0
@@ -193,6 +219,13 @@ class Printer:
             pins = "D0/D1" if self.uart == 1 else "SCL/SDA"
             return f"MCU serial {pins} at {self.baud} baud"
         return find_device(self.device_setting)
+
+    @property
+    def usb_candidates(self) -> list[str]:
+        """The USB printer nodes found now, for the debug page."""
+        if self.device_setting not in ("", "auto"):
+            return [self.device_setting] if os.path.exists(self.device_setting) else []
+        return candidates()
 
     @property
     def busy(self) -> bool:
@@ -215,7 +248,7 @@ class Printer:
 
     def describe_status(self) -> str:
         if self.port != "serial":
-            return "found" if self.device else "not found"
+            return f"found at {self.device}" if self.device else "not found"
         if self.status is None:
             return "not checked"
         if self.status == -1:
@@ -251,11 +284,16 @@ class Printer:
     def _worker(self) -> None:
         while True:
             content, label, tear, mode = self._jobs.get()
+            if self.stretch != 100 and not isinstance(content, bytes):
+                # Repeat (or drop) whole dot rows, so 1-bit images stay crisp.
+                height = max(1, round(content.height * self.stretch / 100))
+                content = content.convert("1").resize((content.width, height), Image.NEAREST)
             if self.flip and not isinstance(content, bytes):
                 content = content.rotate(180)
             body = content if isinstance(content, bytes) else raster(content, mode or self.raster_mode,
                                                                      self.line_spacing, self.reverse)
-            payload = ESC_INIT + body + (feed(self.feed_mm * 8) if tear else b"")
+            darkness = heat(self.heat_time) if self.heat_time else b""
+            payload = ESC_INIT + darkness + body + (feed(self.feed_mm * 8) if tear else b"")
             try:
                 self._write(payload)
                 self.printed += 1
@@ -296,12 +334,14 @@ class Printer:
         fd = os.open(path, os.O_WRONLY | os.O_NOCTTY)
         try:
             if "tty" in path:
+                # A USB serial node (CSN-A2 with a USB-serial bridge): same baud as the serial setting.
+                speed = BAUD_CONSTANTS.get(self.baud, termios.B9600)
                 attrs = termios.tcgetattr(fd)
                 attrs[0] = 0                                    # iflag: raw
                 attrs[1] = 0                                    # oflag: no CR/LF translation
                 attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
                 attrs[3] = 0                                    # lflag: raw
-                attrs[4] = attrs[5] = SERIAL_BAUD
+                attrs[4] = attrs[5] = speed
                 termios.tcsetattr(fd, termios.TCSANOW, attrs)
             view = memoryview(payload)
             while view:

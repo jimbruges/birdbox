@@ -17,20 +17,25 @@
 #include <Arduino_Modulino.h>
 #include <Servo.h>
 
-const int PIN_SERVO = 9;
+// The servo's signal pin and direction are settings in the Python app (the setup
+// wizard tests both), sent here with servo_set_pin() and servo_set_direction().
+int servoPin = 9;
 
 // Trim if the servo creeps when it should be stopped - FS90R units vary.
 const int NEUTRAL_US = 1500;
 const int MAX_OFFSET_US = 500;  // 500 us off neutral = full speed
 
-// Set to +1 if the rail travels the wrong way for your mounting.
-const int OUT_SIGN = -1;
+// -1 for the printed rail as designed; +1 if it travels the wrong way for your mounting.
+int outSign = -1;
 
 // Optional panel buttons, each wired from the pin to GND. Unconnected pins stay
-// high through the pull-up and never trigger. The pins (and what each button
+// high through the pull-up and never trigger. Any of D2-D13 or A0-A5 (pins 14-19)
+// works. The pins (and what each button
 // does) are settings in the Python app, sent here with button_set_pin().
-const int BUTTON_COUNT = 2;
-int buttonPins[BUTTON_COUNT] = {2, 3};  // -1 = not used
+// Buttons 3 and 4 are optional: in the app's "both" listening mode they print the
+// other BirdBox's card and summary.
+const int BUTTON_COUNT = 4;
+int buttonPins[BUTTON_COUNT] = {2, 3, -1, -1};  // -1 = not used
 const unsigned long DEBOUNCE_MS = 30;
 
 // Optional thermal printer on a hardware UART (3.3 V logic: an RS-232 printer
@@ -92,10 +97,10 @@ void applyDrive(int dir) {
         return;
     }
     if (!servo.attached()) {
-        servo.attach(PIN_SERVO);
+        servo.attach(servoPin);
     }
     int offset = (long)MAX_OFFSET_US * speedPct / 100;
-    servo.writeMicroseconds(NEUTRAL_US + OUT_SIGN * dir * offset);
+    servo.writeMicroseconds(NEUTRAL_US + outSign * dir * offset);
 }
 
 // Drive towards one stop for the scaled travel time plus the overrun.
@@ -215,6 +220,23 @@ void servo_set_hold(int ms) { holdMs = constrain(ms, 0, 30000); }
 void servo_set_overrun(int ms) { overrunMs = constrain(ms, 0, 1000); }
 void servo_set_hold_for_song(int on) { holdForSong = on != 0; }
 
+// PWM-capable header pins (D4 has no timer channel).
+bool isServoPin(int pin) {
+    return pin >= 2 && pin <= 13 && pin != 4;
+}
+
+void servo_set_pin(int pin) {
+    if (!isServoPin(pin) || pin == servoPin) {
+        return;
+    }
+    stopAll();           // detaches from the old pin
+    servoPin = pin;
+}
+
+void servo_set_direction(int sign) {
+    outSign = sign >= 0 ? 1 : -1;
+}
+
 int servo_state() { return (int)rail; }
 
 void buzzer_clear() {
@@ -300,8 +322,8 @@ void button_set_pin(int index, int pin) {
     if (index < 1 || index > BUTTON_COUNT) {
         return;
     }
-    // D0/D1 belong to the printer and D9 to the servo.
-    if (pin == 0 || pin == 1 || pin == PIN_SERVO || pin > 21) {
+    // D0/D1 belong to the printer and servoPin to the servo.
+    if (pin == 0 || pin == 1 || pin == servoPin || pin > 21) {
         pin = -1;
     }
     buttonPins[index - 1] = pin;
@@ -331,6 +353,31 @@ int button_presses() {
     int pressed = buttonPresses;
     buttonPresses = 0;
     return pressed;
+}
+
+// For the setup wizard: which free header pins are pulled to GND right now.
+// Every candidate gets the internal pull-up, so a button wired from a pin to GND
+// reads LOW while it's held. Bit n = pin n: D2-D13, and A0-A5, which this core
+// numbers 14-19 (A4 = 18, A5 = 19). The servo pin and D0/D1 are skipped.
+int pins_scan() {
+    static const int candidates[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+    int low = 0;
+    for (int pin : candidates) {
+        if (pin == servoPin || pin == printerBusyPin) {
+            continue;
+        }
+        pinMode(pin, INPUT_PULLUP);
+    }
+    delayMicroseconds(50);  // let the pull-ups settle
+    for (int pin : candidates) {
+        if (pin == servoPin || pin == printerBusyPin) {
+            continue;
+        }
+        if (digitalRead(pin) == LOW) {
+            low |= 1 << pin;
+        }
+    }
+    return low;
 }
 
 // --- Printer -----------------------------------------------------------------
@@ -402,7 +449,7 @@ void printer_set_rate(int bytesPerSecond) {
 }
 
 void printer_set_busy_pin(int pin, int busyWhenHigh) {
-    if (pin == 0 || pin == 1 || pin == PIN_SERVO || pin > 21) {
+    if (pin == 0 || pin == 1 || pin == servoPin || pin > 21) {
         pin = -1;
     }
     printerBusyPin = pin;
@@ -474,7 +521,9 @@ void setup() {
 
     pinMode(LED_BUILTIN, OUTPUT);
     for (int i = 0; i < BUTTON_COUNT; i++) {
-        pinMode(buttonPins[i], INPUT_PULLUP);
+        if (buttonPins[i] >= 0) {
+            pinMode(buttonPins[i], INPUT_PULLUP);
+        }
     }
     // The app starts the printer UART (printer_begin) once it has read the settings.
     digitalWrite(LED_BUILTIN, HIGH);  // active-low: HIGH is off
@@ -495,6 +544,9 @@ void setup() {
     Bridge.provide_safe("servo_set_overrun", servo_set_overrun);
     Bridge.provide_safe("servo_set_hold_for_song", servo_set_hold_for_song);
     Bridge.provide_safe("servo_state", servo_state);
+    Bridge.provide_safe("servo_set_pin", servo_set_pin);
+    Bridge.provide_safe("servo_set_direction", servo_set_direction);
+    Bridge.provide_safe("pins_scan", pins_scan);
     Bridge.provide_safe("buzzer_clear", buzzer_clear);
     Bridge.provide_safe("buzzer_add", buzzer_add);
     Bridge.provide_safe("buzzer_start", buzzer_start);

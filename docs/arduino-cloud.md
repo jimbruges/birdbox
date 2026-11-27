@@ -82,7 +82,10 @@ steps 1 and 2 first, then:
    ```
 
 5. **Create the dashboards.** On the Free plan, add `--free` for just BirdBox Free.
-   Running it again replaces the dashboards' widgets, so it's safe to repeat:
+   They're named after the Thing, e.g. "BirdBox Pro - Birdbox 2", so each BirdBox
+   gets its own. Running it again replaces the widgets on this Thing's dashboards
+   only: a dashboard that shows another Thing's variables (another BirdBox's, or one
+   you made) is never changed, so it's safe to repeat:
 
    ```bash
    python3 tools/setup_cloud.py dashboards --thing "<thing name>"
@@ -139,6 +142,14 @@ default).
 | `summary_hour` | Integer Number | `-1` | −1 (off) – 23 |
 
 Out-of-range values are clamped by the app.
+
+The v3 settings (`listen_mode`, `source_thing_id`, the servo pin, print darkness and
+buttons 3 and 4: see [docs/plan-v3.md](plan-v3.md)) are set in the setup wizard or on
+the debug page only, so they don't need Cloud variables.
+
+The [setup wizard](../README.md#setup-wizard-v3) can also do the quick setup below
+for you: it saves an API key on the board (in the app's `data/cloud-credentials.json`,
+which the app's container can read) and creates the variables and dashboards.
 
 ### Results — Read Only
 
