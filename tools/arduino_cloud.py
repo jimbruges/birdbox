@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MPL-2.0
 """Small Arduino Cloud API helper for setting up the BirdBox Thing and dashboards.
 
-Credentials are read from ~/.config/arduino-cloud/credentials.json (or the file
-named by ARDUINO_CLOUD_CREDENTIALS), which holds an API key created at
-https://app.arduino.cc/api-keys:
+Credentials are read from the file named by ARDUINO_CLOUD_CREDENTIALS, or else
+~/.config/arduino-cloud/credentials.json, or else data/cloud-credentials.json in
+the app (where the setup wizard saves it: the app's container can't see your home
+folder). The file holds an API key created at https://app.arduino.cc/api-keys:
 
     {"client_id": "...", "client_secret": "...", "org_id": ""}
 
@@ -30,18 +31,30 @@ from pathlib import Path
 HOST = "https://api2.arduino.cc"
 TOKEN_URL = f"{HOST}/iot/v1/clients/token"
 AUDIENCE = f"{HOST}/iot"
-CREDENTIALS = Path(os.environ.get("ARDUINO_CLOUD_CREDENTIALS", Path.home() / ".config/arduino-cloud/credentials.json"))
+HOME_CREDENTIALS = Path.home() / ".config/arduino-cloud/credentials.json"
+APP_CREDENTIALS = Path(__file__).resolve().parent.parent / "data" / "cloud-credentials.json"
+
+
+def credentials_path() -> Path:
+    """The first credentials file that exists, in order of preference."""
+    if os.environ.get("ARDUINO_CLOUD_CREDENTIALS"):
+        return Path(os.environ["ARDUINO_CLOUD_CREDENTIALS"])
+    return HOME_CREDENTIALS if HOME_CREDENTIALS.exists() or not APP_CREDENTIALS.exists() else APP_CREDENTIALS
 
 _token: dict = {}
 
 
 def _credentials() -> dict:
+    """The saved API key. Raises RuntimeError (not exit) so the app can report it."""
+    path = credentials_path()
     try:
-        creds = json.loads(CREDENTIALS.read_text())
+        creds = json.loads(path.read_text())
     except FileNotFoundError:
-        sys.exit(f"No credentials at {CREDENTIALS}. See the docstring at the top of this file.")
+        raise RuntimeError("No Arduino Cloud API key saved on the board. Add one in the setup wizard.") from None
+    except ValueError:
+        raise RuntimeError(f"{path} isn't valid JSON") from None
     if not creds.get("client_id") or not creds.get("client_secret"):
-        sys.exit(f"{CREDENTIALS} needs client_id and client_secret")
+        raise RuntimeError(f"{path} needs client_id and client_secret")
     return creds
 
 
@@ -66,7 +79,7 @@ def token() -> str:
         with urllib.request.urlopen(request, timeout=30) as response:
             data = json.load(response)
     except urllib.error.HTTPError as err:
-        sys.exit(f"Token request failed: HTTP {err.code} {err.read().decode(errors='replace')[:300]}")
+        raise RuntimeError(f"Token request failed: HTTP {err.code} {err.read().decode(errors='replace')[:300]}") from None
     _token.update(access_token=data["access_token"], expires_at=time.time() + int(data.get("expires_in", 300)))
     return _token["access_token"]
 
@@ -91,6 +104,13 @@ def api(method: str, path: str, payload: object = None) -> object:
 def main(argv: list[str]) -> None:
     if not argv:
         sys.exit(__doc__)
+    try:
+        _run_command(argv)
+    except RuntimeError as err:
+        sys.exit(str(err))
+
+
+def _run_command(argv: list[str]) -> None:
     command, *rest = argv
     if command == "things":
         for thing in api("GET", "/iot/v2/things?show_properties=false"):

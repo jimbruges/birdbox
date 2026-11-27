@@ -63,7 +63,7 @@ mic ──► bricks/birdnet ──► Detection ──┬──► Arduino Clou
 | A small bird | A felt robin is ideal. Pick whatever bird suits you. |
 | 3D-printed parts | Mic holder, linear servo assembly and servo gear — see [Building the hardware](#building-the-hardware). |
 | ~60 mm hole saw, small wood screws, silicone sealant or hot glue | For mounting and weatherproofing. |
-| USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough. |
+| USB-C power supply | Plugs into the hub's power port and powers everything. A basic 5 W charger is enough without a printer; with the CSN-A2 on the board's 5V (the printed enclosure), use at least 15 W. |
 | Arduino Cloud account | Stage 1 uses 24 Thing variables, stage 2 another 8. The Free plan allows 5 per Thing, and there's a ready-made Free dashboard — see [Arduino Cloud plans](docs/arduino-cloud.md#which-plan-you-need). |
 
 ### Stage 2 (optional)
@@ -445,8 +445,13 @@ prints every time the MCU resets. Pick it with **Printer UART** if you need to.)
   your receipts come out upside down.
 - **Nothing at power-up:** the SCL/SDA UART stays silent until the app starts it,
   so the printer prints nothing when the board boots or the app restarts.
-- **USB printers** work too: set **Connected to** to *USB on the hub*, and the app
-  finds `/dev/usb/lp0` or `/dev/ttyACM0`.
+- **CSN-A2** (v3, the printer in the printed enclosure): on the serial pins like the
+  RS PRO, with **Image command** GS v 0 and about 51 mm of feed. **Print darkness**
+  sets its heat time. The setup wizard's CSN-A2 preset sets all of this.
+- **USB printers:** set **Connected to** to *USB*. The app uses `/dev/ttyACM*` or
+  `/dev/ttyUSB*` (at the **Serial speed**) or `/dev/usb/lp*`. The UNO Q's kernel has
+  no USB printer-class driver, so a printer-class device such as the CSN-A2's mini
+  USB port doesn't appear: use the serial pins for it.
 
 The sketch buffers 4 KB and feeds the UART from `loop()`, so printing never stalls
 the servo or the buzzer.
@@ -455,7 +460,7 @@ the servo or the buzzer.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Connected to | MCU serial pins | Or *USB on the hub* for a USB printer. |
+| Connected to | MCU serial pins | Or *USB* for a CSN-A2 on mini USB, or any USB printer. |
 | Printer UART | SCL/SDA | Or D0/D1, which is also the boot console. |
 | Serial speed | 9600 baud | Must match the printer. |
 | Image command | ESC K | The SP-RMD9's bit-image command. GS v 0, ESC * and DC2 * for other printers. |
@@ -485,6 +490,30 @@ Set a button's pin to *Not used* to turn it off.
 
 The plan and the ideas tested along the way are in
 [docs/plan-v2-printer.md](docs/plan-v2-printer.md).
+
+## Setup wizard (v3)
+
+Open `http://<board-ip>:7000/setup.html` (or **Setup wizard** at the top of the debug
+page). It goes step by step through Arduino Cloud, the board, the microphone, the
+buzzer, the servo, the buttons, the printer and your location, with pictures of the
+printed enclosure, and tests each part as you go: it finds which pin a button is on
+when you press it, flips the servo if the bird goes the wrong way, finds the image
+command your printer understands, and prints darkness and feed tests. The debug UI
+it runs on is now on by default. Details in [docs/plan-v3.md](docs/plan-v3.md).
+
+## Another BirdBox's birds, through Arduino Cloud (v3)
+
+**Listening** can be this unit's microphone, another BirdBox, or both:
+
+- **Another BirdBox:** no microphone needed. This unit plays the song, pushes the
+  bird out, logs it and prints the card for each bird the other unit hears.
+- **Both:** the microphone for this unit's own birds, and the other unit's birds
+  logged separately, with their own cards and daily summary on the optional buttons
+  3 and 4. Their receipts say which BirdBox heard them.
+
+Choose the other unit in the setup wizard. It reads that unit's last detection from
+Arduino Cloud every 5 seconds, so it needs an Arduino Cloud API key (the wizard saves
+it on the board), and the other unit needs the full variable set (Maker plan).
 
 ## Debug web UI
 
